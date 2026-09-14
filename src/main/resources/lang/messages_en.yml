@@ -1,0 +1,58 @@
+version: 1
+# ---------------------------------------------------------------------------------------------
+#  Base language file (English).
+#  Copy to messages_<lang>.yml to translate. Missing keys fall back to THIS file automatically,
+#  so a partial translation never produces a blank message.
+#
+#  All text is MiniMessage: https://docs.advntr.dev/minimessage/format.html
+#  A key is EITHER a plain string OR a {text, hover, click} section.
+#  Click tokens: [NONE] · [RUN_COMMAND]/[EXECUTE] /cmd · [SUGGEST_COMMAND]/[SUGGEST] /cmd ·
+#                [OPEN_URL]/[URL] http... · [COPY] text
+#
+#  Do NOT put the plugin name, author or version here — those are constants, not translations.
+# ---------------------------------------------------------------------------------------------
+
+# The Polaroid brand banner. Composed onto standalone messages IN CODE — never write <prefix>
+# inside another message's own value, because nothing would resolve it there.
+prefix: "<b><#eb4b30>PO</#eb4b30><#f3842c>LA</#f3842c><#f2c42f>RO</#f2c42f><#95d027>ID</#95d027> <#289bd0>TOTEMS</#289bd0> <#315a7a>┇</b> "
+
+general:
+  no_permission: '<#eb4b30>You do not have permission to do this.'
+  players_only: '<#eb4b30>Only a player can run this command.'
+  player_not_found: '<#eb4b30>Player <#f2c42f>%player%<#eb4b30> was not found.'
+  invalid_number: '<#eb4b30><#f2c42f>%value%<#eb4b30> is not a valid number.'
+  reloaded: '<#95d027>Configuration reloaded.'
+
+totem:
+  # Shown to the player the totem just saved. %totem% is the type id.
+  saved: '<#95d027>A <#f2c42f>%totem%<#95d027> totem pulled you back.'
+  given: '<#95d027>Gave <#f2c42f>%amount%x %totem%<#95d027> to <#f2c42f>%player%<#95d027>.'
+  received: '<#95d027>You received <#f2c42f>%amount%x %totem%<#95d027>.'
+  unknown_type: '<#eb4b30>There is no totem type called <#f2c42f>%totem%<#eb4b30>.'
+  inventory_full: '<#eb4b30><#f2c42f>%player%<#eb4b30> does not have room for that.'
+  # The type exists, but its `item:` reference could not be resolved right now — usually a Nexo
+  # id that is misspelled, or Nexo not being installed.
+  unresolvable_item: '<#eb4b30>Totem <#f2c42f>%totem%<#eb4b30> points at item <#f2c42f>%item%<#eb4b30>, which could not be resolved.'
+
+list:
+  header: '<#315a7a>▬▬▬▬▬▬▬▬ <#289bd0>ᴛᴏᴛᴇᴍ ᴛʏᴘᴇs <#6f6085>(%count%) <#315a7a>▬▬▬▬▬▬▬▬'
+  entry:
+    text: '<#f2c42f>▸ <#E9FDFB>%totem% <#315a7a>— stacks to <#289bd0>%stack_size%<#315a7a>, <#289bd0>%effects%<#315a7a> effect(s)'
+    hover: '<#E9FDFB>Backing item: <#b6c1ec>%item%'
+    click: '[SUGGEST_COMMAND] /totems give '
+
+help:
+  header: '<#315a7a>▬▬▬▬▬▬▬▬▬▬▬▬ <#289bd0>ʜᴇʟᴘ <#315a7a>▬▬▬▬▬▬▬▬▬▬▬▬'
+  no_admin: '<#315a7a>Custom totems work on their own. Nothing to configure from here.'
+  list:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems list <#315a7a>— List every totem type'
+    hover: '<#E9FDFB>Permission: <#f2c42f>polaroidtotems.admin'
+    click: '[RUN_COMMAND] /totems list'
+  give:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems give <player> <type> [amount] <#315a7a>— Hand out a totem'
+    hover: '<#E9FDFB>Permission: <#f2c42f>polaroidtotems.admin'
+    click: '[SUGGEST_COMMAND] /totems give '
+  reload:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems reload <#315a7a>— Reload the YAML files'
+    hover: '<#E9FDFB>Permission: <#f2c42f>polaroidtotems.admin'
+    click: '[SUGGEST_COMMAND] /totems reload'

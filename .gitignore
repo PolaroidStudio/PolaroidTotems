@@ -1,0 +1,10 @@
+.gradle/
+build/
+out/
+*.class
+.idea/
+*.iml
+.vscode/
+
+# Local agent session tooling, not part of the plugin.
+.engram/

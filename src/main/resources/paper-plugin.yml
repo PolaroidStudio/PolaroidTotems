@@ -1,0 +1,70 @@
+name: PolaroidTotems
+version: '${version}'
+main: me.juancayc.polaroidtotems.PolaroidTotemsPlugin
+
+# NOTE: there is deliberately no `loader:` key here.
+#
+# This plugin persists nothing: a totem's identity travels inside the item's own PersistentDataContainer,
+# so there is no database, no connection pool and no runtime library to resolve. A loader class with
+# nothing to load would be pure ceremony.
+
+# FLOOR, not a ceiling — and INJECTED AT BUILD TIME, not written here.
+#
+# This project ships two jars from one source tree, because Minecraft's versioning changed: the
+# 1.x line ended at 1.21.11 and was replaced by calendar versioning (26.1, 26.2, …). The two eras
+# need different api-version declarations, and api-version is read by the server before any of our
+# code runs, so it cannot be decided at runtime.
+#
+# `${apiVersion}` is substituted by processResources, driven by the `jar1211` and `jar262` tasks in
+# build.gradle.kts:
+#
+#   jar1211 -> '1.21'   the honest floor for the 1.x line. The plugin's single hard API requirement
+#                       is the `minecraft:max_stack_size` data component, which gives each totem
+#                       type its own stack size; it shipped in 1.20.5 along with the Paper route we
+#                       call for it (ItemStack#setData + DataComponentTypes.MAX_STACK_SIZE). Every
+#                       other API we touch (EntityResurrectEvent#getHand, PersistentDataContainer,
+#                       EntityEffect.PROTECTED_FROM_DEATH, JavaPlugin#registerCommand) is older or
+#                       arrived alongside it. We declare '1.21' rather than '1.20.5' because that is
+#                       the oldest line we actually test — declaring a floor below what we test
+#                       would be a claim we cannot back.
+#
+#   jar262  -> '26.2'   the calendar-versioned line. Declaring an old api-version here would route
+#                       the plugin through Paper's LEGACY plugin path (material/name remapping),
+#                       which is where old-api-version plugins misbehave on 26.x.
+#
+# Every API call this plugin makes was verified byte-identical between paper-api 1.21.11 and
+# paper-api 26.2: same signatures, same call-site descriptors. That is why one source tree is
+# enough and there is no compatibility shim — only this one differing line.
+api-version: '${apiVersion}'
+
+author: juancayc
+description: 'Custom Totems of Undying: per-type stack sizes, inventory-wide activation, configurable effects.'
+website: https://github.com/PolaroidStudio/PolaroidTotems
+
+folia-supported: true
+
+# NOTE: there is deliberately no `commands:` block here.
+#
+# Paper plugins do not support YAML command declarations — that is a legacy plugin.yml feature,
+# and JavaPlugin#getCommand throws UnsupportedOperationException for a Paper plugin during
+# startup. The command, its description and its aliases (totem, pt) are registered in code by
+# CommandRegistrar via JavaPlugin#registerCommand, which must run inside onEnable().
+
+permissions:
+  polaroidtotems.use:
+    description: Be resurrected by a custom totem from anywhere in the inventory.
+    default: true
+  polaroidtotems.admin:
+    description: Give totems, list totem types and reload the configuration.
+    default: op
+
+# MANDATORY for Nexo. paper-plugin.yml defaults join-classpath to FALSE (unlike legacy
+# plugin.yml, which effectively joined everything). Our NexoItemHook references Nexo's real
+# classes, so without this the very first call throws NoClassDefFoundError. The
+# isPluginEnabled() guard controls WHEN we call into Nexo, not WHETHER its classes resolve.
+dependencies:
+  server:
+    Nexo:
+      load: BEFORE
+      required: false
+      join-classpath: true

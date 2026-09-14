@@ -1,0 +1,51 @@
+version: 1
+# ---------------------------------------------------------------------------------------------
+#  Archivo de idioma: espanol.
+#  Las claves que falten aqui se completan automaticamente con messages_en.yml, asi que una
+#  traduccion parcial nunca deja un mensaje vacio.
+#
+#  Todo el texto usa MiniMessage: https://docs.advntr.dev/minimessage/format.html
+#  Una clave es O BIEN un texto simple, O BIEN una seccion {text, hover, click}.
+#
+#  No coloques aqui el nombre del plugin, el autor ni la version: son constantes, no traducciones.
+# ---------------------------------------------------------------------------------------------
+
+prefix: "<b><#eb4b30>PO</#eb4b30><#f3842c>LA</#f3842c><#f2c42f>RO</#f2c42f><#95d027>ID</#95d027> <#289bd0>TOTEMS</#289bd0> <#315a7a>┇</b> "
+
+general:
+  no_permission: '<#eb4b30>No tienes permiso para hacer esto.'
+  players_only: '<#eb4b30>Solo un jugador puede ejecutar este comando.'
+  player_not_found: '<#eb4b30>No se encontro al jugador <#f2c42f>%player%<#eb4b30>.'
+  invalid_number: '<#eb4b30><#f2c42f>%value%<#eb4b30> no es un numero valido.'
+  reloaded: '<#95d027>Configuracion recargada.'
+
+totem:
+  saved: '<#95d027>Un totem <#f2c42f>%totem%<#95d027> te trajo de vuelta.'
+  given: '<#95d027>Entregaste <#f2c42f>%amount%x %totem%<#95d027> a <#f2c42f>%player%<#95d027>.'
+  received: '<#95d027>Recibiste <#f2c42f>%amount%x %totem%<#95d027>.'
+  unknown_type: '<#eb4b30>No existe ningun tipo de totem llamado <#f2c42f>%totem%<#eb4b30>.'
+  inventory_full: '<#eb4b30><#f2c42f>%player%<#eb4b30> no tiene espacio para eso.'
+  unresolvable_item: '<#eb4b30>El totem <#f2c42f>%totem%<#eb4b30> apunta al item <#f2c42f>%item%<#eb4b30>, que no se pudo resolver.'
+
+list:
+  header: '<#315a7a>▬▬▬▬▬▬▬▬ <#289bd0>ᴛɪᴘᴏs ᴅᴇ ᴛᴏᴛᴇᴍ <#6f6085>(%count%) <#315a7a>▬▬▬▬▬▬▬▬'
+  entry:
+    text: '<#f2c42f>▸ <#E9FDFB>%totem% <#315a7a>— apila hasta <#289bd0>%stack_size%<#315a7a>, <#289bd0>%effects%<#315a7a> efecto(s)'
+    hover: '<#E9FDFB>Item base: <#b6c1ec>%item%'
+    click: '[SUGGEST_COMMAND] /totems give '
+
+help:
+  header: '<#315a7a>▬▬▬▬▬▬▬▬▬▬▬▬ <#289bd0>ᴀʏᴜᴅᴀ <#315a7a>▬▬▬▬▬▬▬▬▬▬▬▬'
+  no_admin: '<#315a7a>Los totems personalizados funcionan solos. No hay nada que configurar desde aqui.'
+  list:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems list <#315a7a>— Lista todos los tipos de totem'
+    hover: '<#E9FDFB>Permiso: <#f2c42f>polaroidtotems.admin'
+    click: '[RUN_COMMAND] /totems list'
+  give:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems give <jugador> <tipo> [cantidad] <#315a7a>— Entrega un totem'
+    hover: '<#E9FDFB>Permiso: <#f2c42f>polaroidtotems.admin'
+    click: '[SUGGEST_COMMAND] /totems give '
+  reload:
+    text: '<#f2c42f>▸ <#E9FDFB>/totems reload <#315a7a>— Recarga los archivos YAML'
+    hover: '<#E9FDFB>Permiso: <#f2c42f>polaroidtotems.admin'
+    click: '[SUGGEST_COMMAND] /totems reload'

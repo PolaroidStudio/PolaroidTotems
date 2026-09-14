@@ -1,0 +1,111 @@
+# ---------------------------------------------------------------------------------------------
+#  PolaroidTotems — general configuration
+# ---------------------------------------------------------------------------------------------
+#  The totem types themselves are NOT here. They live in totems.yml.
+#  All player-facing text lives in lang/messages_<language>.yml.
+#
+#  Everything in this file is re-read by `/totems reload`.
+# ---------------------------------------------------------------------------------------------
+
+# Which lang/messages_<language>.yml to load. Missing keys fall back to English automatically,
+# so a partial translation is safe to ship.
+language: en
+
+# ---------------------------------------------------------------------------------------------
+#  Activation
+# ---------------------------------------------------------------------------------------------
+#  Vanilla only resurrects a player holding a totem in one of their two hands. This section is
+#  what lets a totem work from anywhere in the inventory instead.
+activation:
+  # Master switch for inventory-wide activation.
+  #
+  #   true  -> a totem anywhere in the inventory saves the player (the point of this plugin)
+  #   false -> vanilla behaviour: only a totem in a hand saves them. Per-totem stack sizes and
+  #            custom effects still work; only the "from anywhere" part is disabled.
+  from-inventory: true
+
+  # Also look in the armour slots, not just the 36 main inventory slots and the off hand.
+  #
+  # Off by default because a player rarely means to store a totem on their head, and searching
+  # armour makes the outcome harder to predict when several totem types are carried at once.
+  include-armor-slots: false
+
+  # Permission a player needs for inventory-wide activation. Leave blank to allow everyone.
+  #
+  # A player WITHOUT it is not punished: they keep the ordinary vanilla hand-held behaviour,
+  # because that branch belongs to the server, not to this plugin. Useful to sell the feature as
+  # a perk, or to roll it out gradually.
+  require-permission: ''
+
+# ---------------------------------------------------------------------------------------------
+#  Normalization
+# ---------------------------------------------------------------------------------------------
+#  Read this before turning anything here off.
+#
+#  Minecraft decides whether two item stacks merge by comparing their COMPONENTS. A totem that
+#  carries this plugin's type tag is therefore a different item from a plain one, and the two
+#  will never stack together. That is the very mechanism that lets two totem types have different
+#  stack limits — but left alone it means a player who loots totems from several sources ends up
+#  with a shelf of one-item stacks that refuse to combine.
+#
+#  Normalization fixes that by stamping every untagged Totem of Undying as the reserved `vanilla`
+#  type from totems.yml. After that, everything the player carries shares one identity and stacks
+#  to whatever `vanilla.stack-size` says.
+#
+#  Turning this off is supported, but expect exactly the un-stacking described above.
+normalization:
+  # Master switch for every trigger below.
+  enabled: true
+
+  # A totem picked up off the ground, from a mob drop, or out of a hopper.
+  on-pickup: true
+
+  # Everything already in a player's inventory when they log in. This is what converts totems
+  # that existed before the plugin was installed.
+  on-join: true
+
+  # A totem moved by any inventory click. Only the clicked stack and the stack on the cursor are
+  # inspected — never the whole inventory — so this stays cheap on a busy server.
+  on-inventory-click: true
+
+  # Scans a container the moment a player opens it. Catches a chest or shulker box full of totems
+  # that would otherwise only be converted one click at a time.
+  on-inventory-open: true
+
+# ---------------------------------------------------------------------------------------------
+#  Resurrection
+# ---------------------------------------------------------------------------------------------
+resurrection:
+  # Ticks to wait before applying a totem's custom effects. 20 ticks = 1 second.
+  #
+  # Do NOT set this to 0, and it is clamped to a minimum of 1 if you do. Vanilla applies its own
+  # Regeneration II, Absorption II and Fire Resistance as part of the resurrection, which happens
+  # AFTER this plugin decides to save the player. A custom effect applied in the same tick is
+  # simply overwritten by vanilla's. One tick later, it survives.
+  #
+  # Raise it only if you want a visible gap between the vanilla effects and yours.
+  effect-delay-ticks: 1
+
+  # Play the vanilla totem animation (the spinning totem and the screen flash).
+  #
+  # Worth knowing: on the inventory-wide path the animation does NOT play by itself, because
+  # vanilla only triggers it for a totem it consumed from a hand. The plugin plays it explicitly,
+  # which is what this switch controls. Turn it off for a silent, invisible save.
+  play-animation: true
+
+  # Tell the player in chat which totem type saved them. The message is `totem.saved` in the
+  # language file.
+  announce: true
+
+# ---------------------------------------------------------------------------------------------
+#  Sound
+# ---------------------------------------------------------------------------------------------
+#  ONE sound for the whole plugin (Polaroid style rule), played on a successful resurrection and
+#  nowhere else. A refused totem and a failed give stay silent.
+#
+#  Use a vanilla sound name such as ITEM_TOTEM_USE or ENTITY_PLAYER_LEVELUP. An unknown name logs
+#  a warning and falls back to the totem sound rather than throwing.
+sound:
+  resurrect: 'ITEM_TOTEM_USE'
+  volume: 1.0
+  pitch: 1.0

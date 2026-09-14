@@ -1,0 +1,276 @@
+# ---------------------------------------------------------------------------------------------
+#  PolaroidTotems — totem types
+# ---------------------------------------------------------------------------------------------
+#  Every totem type the server knows lives under the `totems:` key below. The key you write is
+#  the type's id: it is what `/totems give <player> <id>` takes, and it is the exact string
+#  stamped into the item so the type survives being dropped, chested and traded.
+#
+#  Ids are lowercased when they are read, so `Guardian` and `guardian` are the same type.
+#
+#  Reload with `/totems reload`. A broken entry costs you that one type and logs a warning; it
+#  never takes the plugin down with it.
+# ---------------------------------------------------------------------------------------------
+#
+#  EVERY KEY A TOTEM CAN HAVE
+#  --------------------------
+#
+#  item: vanilla                  Which item backs this totem.
+#                                   vanilla              -> the ordinary Totem of Undying
+#                                   vanilla:SOME_MATERIAL-> any vanilla material by name
+#                                   nexo:my_totem        -> a Nexo item by its id
+#                                 Resolved the moment a totem is handed out, never at startup,
+#                                 because Nexo loads its items asynchronously: an id that looks
+#                                 missing during boot resolves perfectly ten seconds later.
+#
+#                                 Careful: a type backed by a material OTHER than
+#                                 TOTEM_OF_UNDYING can only be found in a hand, like vanilla.
+#                                 Inventory-wide search matches on the totem material, on
+#                                 purpose — see the note at the bottom of this file.
+#
+#  stack-size: 1                  How many of THIS type fit in one slot. Range 1-99.
+#                                 Out-of-range values are clamped and logged, not rejected.
+#                                 This is the `minecraft:max_stack_size` data component, so it
+#                                 is real vanilla behaviour, not a visual trick.
+#
+#                                 Two types with different sizes never share a stack. That is
+#                                 how it has to work: the game compares components to decide
+#                                 whether stacks merge, and the size IS a component.
+#
+#  display-name: '<MiniMessage>'  The item's name. Omit to keep the item's own name.
+#  lore:                          Lore lines, MiniMessage, one per entry. Omit to leave alone.
+#    - '<MiniMessage>'
+#
+#  item-model: 'ns:item/my_totem' Which model a resource pack renders for this totem. This is the
+#                                 `minecraft:item_model` component, and it is the MODERN way to do
+#                                 it: you name the model outright instead of overloading a number.
+#                                 A bare value like `item/my_totem` is read in the `minecraft`
+#                                 namespace. Omit to leave the item's own model untouched.
+#                                 An unparseable key is ignored with a warning, so one typo never
+#                                 stops the totem from being handed out.
+#
+#  custom-model-data: 1001        The LEGACY way to do the same thing. Still supported because
+#                                 plenty of existing packs select on this number, but prefer
+#                                 item-model for anything new — vanilla moved to it in 1.21.4.
+#                                 Omit to leave the item's own value untouched.
+#
+#                                 The two are independent: set either, both, or neither. When both
+#                                 are present the client resolves item_model first, so your pack
+#                                 decides which one wins. The plugin does not arbitrate.
+#
+#                                 NEXO USERS, READ THIS. `item-model` is NOT how you point at a
+#                                 Nexo item, and `item-model: 'nexo:my_totem'` does not work. The
+#                                 two keys live on different layers:
+#
+#                                   item:       'nexo:my_totem'   <- an ITEM reference. Nexo hands
+#                                                                    back a finished item that
+#                                                                    ALREADY carries its model.
+#                                   item-model: 'polaroid:item/x' <- a vanilla MODEL key, resolved
+#                                                                    by a resource pack.
+#
+#                                 Written as `item-model: 'nexo:my_totem'` the client would hunt
+#                                 for a model named `nexo:my_totem` in the pack, which Nexo never
+#                                 registers, and the totem would render as a missing model.
+#
+#                                 So with Nexo you use `item:` ALONE and leave both appearance keys
+#                                 out. Setting item-model on top of a Nexo item overwrites the model
+#                                 Nexo just gave it — the plugin stamps after resolving, so your
+#                                 value wins and the Nexo texture is lost.
+#
+#  consume: true                  Whether the totem is used up when it saves the player.
+#                                 false makes it reusable — think hard before shipping that.
+#
+#  heal-to-full: false            Vanilla leaves the player on 1 HP. true tops them up to their
+#                                 real maximum health instead (an attribute, not a flat 20).
+#
+#  permission: ''                 Permission required for this type to fire at all. Blank means
+#                                 anyone. A player without it carries the totem uselessly; it is
+#                                 simply skipped when the plugin looks for one.
+#
+#  effects:                       Potion effects granted one tick after the resurrection.
+#    - type: REGENERATION         Effect name. Accepts REGENERATION or minecraft:regeneration.
+#      seconds: 10                Duration in seconds. Converted to ticks for you.
+#      level: 2                   Human level: 1 = I, 2 = II. Not the zero-based amplifier.
+#      ambient: false             true = the faint "beacon" particle haze.
+#      particles: true            false = no particles at all.
+#
+#                                 These are applied ON TOP of vanilla's own Regeneration II,
+#                                 Absorption II and Fire Resistance, which the game always grants
+#                                 on a resurrection. Naming one of those three here simply
+#                                 replaces vanilla's version with yours.
+#
+# ---------------------------------------------------------------------------------------------
+
+totems:
+
+  # -------------------------------------------------------------------------------------------
+  #  RESERVED ENTRY — do not rename this key
+  # -------------------------------------------------------------------------------------------
+  #  `vanilla` describes the plain Totem of Undying, and it is the type every totem WITHOUT a tag
+  #  is treated as. That is the rule that makes the rest of the file work: the plugin never has
+  #  to hunt down every totem that already existed on the server, it just says "untagged means
+  #  vanilla" and normalization stamps them as they pass through a player's hands.
+  #
+  #  Deleting this section is allowed — the plugin falls back to exactly the values below.
+  #
+  #  It deliberately carries NO custom effects. A plain totem should do what a plain totem does;
+  #  a player who has never heard of this plugin should not be surprised by it. Give it effects
+  #  only if you really mean to change the vanilla item for everyone.
+  # -------------------------------------------------------------------------------------------
+  vanilla:
+    item: vanilla
+    # Raise this to let ordinary totems stack. 16 is a comfortable choice for a survival server;
+    # 1 keeps strict vanilla behaviour.
+    stack-size: 16
+    consume: true
+    heal-to-full: false
+    effects: []
+
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 1 — a straightforward upgrade
+  # -------------------------------------------------------------------------------------------
+  #  Heals to full instead of leaving you on half a heart, and stacks four high. The kind of
+  #  totem you sell in a shop.
+  # -------------------------------------------------------------------------------------------
+  guardian:
+    item: vanilla
+    stack-size: 4
+    # The modern way to give a totem its own look. Your resource pack maps this key to a model.
+    # Commented out because the plugin ships no pack: uncomment it once yours defines the model,
+    # or the item simply renders as an ordinary totem.
+    # item-model: 'polaroid:item/guardian_totem'
+    display-name: '<#95d027>ɢᴜᴀʀᴅɪᴀɴ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Restores you to full health'
+      - '<#E9FDFB>instead of a single heart.'
+      - ''
+      - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+    consume: true
+    heal-to-full: true
+    effects:
+      - type: REGENERATION
+        seconds: 12
+        level: 3
+      - type: ABSORPTION
+        seconds: 30
+        level: 3
+
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 2 — a totem with a job
+  # -------------------------------------------------------------------------------------------
+  #  Built for a lava death: fire resistance long enough to actually climb out, plus the speed to
+  #  do it. Stacks high because it is cheap and situational.
+  # -------------------------------------------------------------------------------------------
+  ember:
+    item: vanilla
+    stack-size: 16
+    # The legacy route, shown here so both appear in this file. Use it only when your pack already
+    # selects on custom_model_data; prefer item-model (see `guardian` above) for anything new.
+    # custom-model-data: 1002
+    display-name: '<#f3842c>ᴇᴍʙᴇʀ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Made for the fall into lava.'
+      - '<#E9FDFB>Buys you the seconds to get out.'
+      - ''
+      - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+    consume: true
+    heal-to-full: false
+    effects:
+      - type: FIRE_RESISTANCE
+        seconds: 45
+        level: 1
+      - type: SPEED
+        seconds: 15
+        level: 2
+      - type: REGENERATION
+        seconds: 10
+        level: 2
+
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 3 — a permission-gated rarity
+  # -------------------------------------------------------------------------------------------
+  #  Only fires for a player holding `polaroidtotems.type.eclipse`. Anyone else carries it as a
+  #  useless souvenir — it is skipped when the plugin looks for a totem to use.
+  #
+  #  Stack-size 1 is intentional: something this strong should take a slot.
+  #
+  #  Note the `custom-model-data`: point a resource pack at it to give this type its own texture
+  #  without leaving the vanilla item. It is shown here because existing packs still use it; for a
+  #  new pack prefer `item-model` (see `guardian`). If your textures are already built in Nexo,
+  #  neither key applies — use `item:` alone, as in EXAMPLE 4 below.
+  # -------------------------------------------------------------------------------------------
+  eclipse:
+    item: vanilla
+    stack-size: 1
+    display-name: '<#cd80f7>ᴇᴄʟɪᴘsᴇ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Death refuses you, briefly.'
+      - '<#b6c1ec>Requires a rank to work.'
+      - ''
+      - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+    custom-model-data: 1001
+    permission: 'polaroidtotems.type.eclipse'
+    consume: true
+    heal-to-full: true
+    effects:
+      - type: RESISTANCE
+        seconds: 20
+        level: 3
+      - type: REGENERATION
+        seconds: 20
+        level: 3
+      - type: ABSORPTION
+        seconds: 60
+        level: 4
+      - type: NIGHT_VISION
+        seconds: 30
+        level: 1
+        particles: false
+
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 4 — backed by a Nexo item
+  # -------------------------------------------------------------------------------------------
+  #  This is the whole recipe for a Nexo-textured totem: point `item:` at the Nexo id and stop.
+  #  Nexo hands back a finished item that already carries its own model, so there is deliberately
+  #  NO item-model and NO custom-model-data here — setting either would overwrite what Nexo just
+  #  gave the item.
+  #
+  #  `nexo-my_totem` works too; the plugin accepts either separator.
+  #
+  #  Commented out because it needs a Nexo item that actually exists. With Nexo absent, or the id
+  #  unknown, the type simply cannot be handed out and the command says so — the rest of the file
+  #  keeps working.
+  #
+  #  ONE REAL CONSTRAINT, worth reading before you build the item in Nexo: base it on
+  #  TOTEM_OF_UNDYING. The inventory-wide search matches on that material (see the note below), so
+  #  a totem built on any other material is only found in a hand, exactly like a vanilla one — you
+  #  would lose the feature this plugin exists for.
+  # -------------------------------------------------------------------------------------------
+  # nexus:
+  #   item: 'nexo:nexus_totem'
+  #   stack-size: 8
+  #   display-name: '<#22e8bc>ɴᴇxᴜs ᴛᴏᴛᴇᴍ'
+  #   lore:
+  #     - '<#E9FDFB>Its texture comes from Nexo.'
+  #     - ''
+  #     - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+  #   consume: true
+  #   heal-to-full: true
+  #   effects:
+  #     - type: REGENERATION
+  #       seconds: 15
+  #       level: 2
+
+# ---------------------------------------------------------------------------------------------
+#  A note on `item:` and inventory-wide search
+# ---------------------------------------------------------------------------------------------
+#  The inventory-wide search matches on the TOTEM_OF_UNDYING material, deliberately. It runs at
+#  the moment a player would otherwise die, and it has to be fast enough to be invisible; a
+#  material check is one field comparison, while "does this item carry our tag" means reading
+#  item metadata for every slot.
+#
+#  What that means for you: a type whose `item:` points at a different material (a Nexo item
+#  built on PAPER, say) still works perfectly when held in a hand, but will not be found by the
+#  inventory-wide search. If you want a custom-textured totem that works from anywhere, back it
+#  with the totem material and use `custom-model-data:` — or build the Nexo item on top of
+#  TOTEM_OF_UNDYING.
+# ---------------------------------------------------------------------------------------------
