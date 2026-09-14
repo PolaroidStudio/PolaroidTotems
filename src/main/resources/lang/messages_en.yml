@@ -34,6 +34,15 @@ totem:
   # id that is misspelled, or Nexo not being installed.
   unresolvable_item: '<#eb4b30>Totem <#f2c42f>%totem%<#eb4b30> points at item <#f2c42f>%item%<#eb4b30>, which could not be resolved.'
 
+skill:
+  # Sent to admins after a reload when a totem names a MythicMobs skill Mythic does not know.
+  # Nothing is sent at all when every name resolves — silence means healthy.
+  unknown_summary: '<#eb4b30>%count% configured MythicMobs skill(s) could not be found.'
+  unknown_entry:
+    text: '<#f2c42f>▸ <#E9FDFB>%totem% <#315a7a>— unknown skill <#eb4b30>%skill%'
+    hover: '<#E9FDFB>Fix the name in <#b6c1ec>totems.yml<#E9FDFB>, then run <#f2c42f>/mm reload'
+    click: '[SUGGEST_COMMAND] /mm reload'
+
 list:
   header: '<#315a7a>▬▬▬▬▬▬▬▬ <#289bd0>ᴛᴏᴛᴇᴍ ᴛʏᴘᴇs <#6f6085>(%count%) <#315a7a>▬▬▬▬▬▬▬▬'
   entry:

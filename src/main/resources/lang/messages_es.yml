@@ -27,6 +27,13 @@ totem:
   inventory_full: '<#eb4b30><#f2c42f>%player%<#eb4b30> no tiene espacio para eso.'
   unresolvable_item: '<#eb4b30>El totem <#f2c42f>%totem%<#eb4b30> apunta al item <#f2c42f>%item%<#eb4b30>, que no se pudo resolver.'
 
+skill:
+  unknown_summary: '<#eb4b30>No se encontraron %count% habilidad(es) de MythicMobs configurada(s).'
+  unknown_entry:
+    text: '<#f2c42f>▸ <#E9FDFB>%totem% <#315a7a>— habilidad desconocida <#eb4b30>%skill%'
+    hover: '<#E9FDFB>Corrige el nombre en <#b6c1ec>totems.yml<#E9FDFB> y ejecuta <#f2c42f>/mm reload'
+    click: '[SUGGEST_COMMAND] /mm reload'
+
 list:
   header: '<#315a7a>▬▬▬▬▬▬▬▬ <#289bd0>ᴛɪᴘᴏs ᴅᴇ ᴛᴏᴛᴇᴍ <#6f6085>(%count%) <#315a7a>▬▬▬▬▬▬▬▬'
   entry:

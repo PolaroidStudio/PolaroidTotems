@@ -162,8 +162,11 @@ public final class TotemsCommand implements BasicCommand {
             messages.sendPrefixed(sender, "general.no_permission");
             return;
         }
-        plugin.reloadEverything();
+        // The sender is handed through so the skill-name validation that runs inside can report to
+        // them without ALSO reaching them a second time as an online admin. Ordered so "reloaded"
+        // lands first and any findings read as its consequence.
         messages.sendPrefixed(sender, "general.reloaded");
+        plugin.reloadEverything(sender);
     }
 
     private void sendHelp(CommandSender sender) {
