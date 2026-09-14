@@ -8,3 +8,7 @@ out/
 
 # Local agent session tooling, not part of the plugin.
 .engram/
+.atl/
+
+# Eclipse/VSCode Java output directory. `build/` above only covers Gradle's own.
+bin/
