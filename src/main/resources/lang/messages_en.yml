@@ -26,6 +26,13 @@ general:
 totem:
   # Shown to the player the totem just saved. %totem% is the type id.
   saved: '<#95d027>A <#f2c42f>%totem%<#95d027> totem pulled you back.'
+  # Sent ONCE, and only when the player actually died because every totem they carried was still
+  # on cooldown. A player saved by another totem hears nothing about the ones that were waiting.
+  #
+  # %totem% is the type whose cooldown ends SOONEST of the ones that were skipped — the most useful
+  # single number, since it is when they can next expect to be saved.
+  # %time% is already formatted for reading: '45s', '2m 30s', '1h 5m', '2d 3h'.
+  cooldown: '<#eb4b30>Your <#f2c42f>%totem%<#eb4b30> totem is still recharging — <#f2c42f>%time%<#eb4b30> left.'
   given: '<#95d027>Gave <#f2c42f>%amount%x %totem%<#95d027> to <#f2c42f>%player%<#95d027>.'
   received: '<#95d027>You received <#f2c42f>%amount%x %totem%<#95d027>.'
   unknown_type: '<#eb4b30>There is no totem type called <#f2c42f>%totem%<#eb4b30>.'

@@ -2,11 +2,24 @@ name: PolaroidTotems
 version: '${version}'
 main: me.juancayc.polaroidtotems.PolaroidTotemsPlugin
 
-# NOTE: there is deliberately no `loader:` key here.
+# WHY THIS KEY NOW EXISTS.
 #
-# This plugin persists nothing: a totem's identity travels inside the item's own PersistentDataContainer,
-# so there is no database, no connection pool and no runtime library to resolve. A loader class with
-# nothing to load would be pure ceremony.
+# This file used to state that there was deliberately no `loader:` key, because the plugin persisted
+# nothing — a totem's identity travels inside the item's own PersistentDataContainer, which needs no
+# database at all. That was true and is still true OF TOTEMS.
+#
+# What changed is per-totem cooldowns. A cooldown is a fact about a PLAYER, not about an item, so
+# there is nothing to carry it: it has to outlive the player's session and the server's uptime, and
+# only storage does that. A cooldown that resets on every restart is not a cooldown, it is a
+# suggestion — and the totem it gates is duplicated by any player patient enough to wait for the
+# next reboot.
+#
+# So the plugin now opens a small SQLite (or MySQL) database for that one table, configured in
+# data.yml, and needs HikariCP plus a JDBC driver at runtime. Paper has no `libraries:` key — that
+# belongs to Spigot's plugin.yml and is silently ignored here — so a loader class declared below is
+# the only way to fetch them. See PolaroidTotemsLoader, which also explains why they are resolved
+# rather than shaded.
+loader: me.juancayc.polaroidtotems.PolaroidTotemsLoader
 
 # FLOOR, not a ceiling — and INJECTED AT BUILD TIME, not written here.
 #
@@ -56,6 +69,29 @@ permissions:
     default: true
   polaroidtotems.admin:
     description: Give totems, list totem types and reload the configuration.
+    default: op
+
+  # TWO-LEVEL COOLDOWN BYPASS.
+  #
+  # A totem's `cooldown:` in totems.yml makes a player wait before that same type can save them
+  # again. These two nodes exempt a player from that wait, and they are deliberately parent and
+  # child of each other:
+  #
+  #   polaroidtotems.cooldown.bypass            -> exempt from EVERY totem type's cooldown
+  #   polaroidtotems.cooldown.bypass.<totemid>  -> exempt from ONE type's cooldown
+  #
+  # The per-type node being a child is what makes `polaroidtotems.cooldown.bypass.*` work in a
+  # permission plugin: an owner can grant every type at once without listing them, while the bare
+  # parent stays a separate, deliberate grant. Holding EITHER is enough.
+  #
+  # Only the parent is declared here. The per-type nodes cannot be — the totem ids come from
+  # totems.yml, which this file knows nothing about — so they are simply checked at runtime and
+  # default to unset (denied) until an operator grants one.
+  #
+  # `default: op` matches the rest of this file: the feature is on for ordinary players, and an
+  # operator is exempt, which is what an operator testing a totem expects.
+  polaroidtotems.cooldown.bypass:
+    description: Ignore every totem type's cooldown. Per-type: polaroidtotems.cooldown.bypass.<totemid>
     default: op
 
 # MANDATORY for both hooks below. paper-plugin.yml defaults join-classpath to FALSE (unlike legacy

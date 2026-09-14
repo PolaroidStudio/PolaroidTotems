@@ -51,15 +51,25 @@ public final class ResurrectListener implements Listener {
         // without this check is an NPE on literally every death on the server.
         boolean handHeld = event.getHand() != null;
 
+        // ONE clock reading for the whole decision. Threaded through the search so every totem in
+        // the inventory is judged against the same instant rather than against a clock that advances
+        // mid-scan.
+        long now = System.currentTimeMillis();
+
         if (handHeld) {
             // Vanilla is already resurrecting the player with a totem it found in a hand. It will
             // consume that totem and play the animation itself, so the plugin only adds this type's
             // custom effects on top. Nothing is un-cancelled here because nothing was cancelled.
             if (event.isCancelled()) return;
 
-            TotemService.FoundTotem found = totems.findUsableTotem(player);
-            if (found == null) return;
-            totems.applyResurrection(player, found, false);
+            TotemService.SearchResult result = totems.searchUsableTotem(player, now);
+            if (!result.found()) {
+                // The hand-held branch deliberately says NOTHING about a cooldown. Vanilla is
+                // resurrecting this player with or without us — they are not being refused, so a
+                // "wait 2m 30s" line would contradict the totem they just watched save them.
+                return;
+            }
+            totems.applyResurrection(player, result.totem(), false);
             return;
         }
 
@@ -70,13 +80,20 @@ public final class ResurrectListener implements Listener {
         String permission = config.activationPermission();
         if (permission != null && !player.hasPermission(permission)) return;
 
-        TotemService.FoundTotem found = totems.findUsableTotem(player);
-        if (found == null) return;
+        TotemService.SearchResult result = totems.searchUsableTotem(player, now);
+        if (!result.found()) {
+            // THE one place a cooldown refusal is announced, and the reason the search itself sends
+            // nothing. A player dying is a noisy moment: this sends at most one line no matter how
+            // many totems were scanned, and sends none at all when a later totem saved them (that
+            // branch never reaches here) or when nothing was on cooldown in the first place.
+            totems.notifyBlockedByCooldown(player, result);
+            return;
+        }
 
         // Fact 4: this is what actually saves the player.
         event.setCancelled(false);
 
         // consumeManually = true: vanilla took nothing, because it never saw a totem.
-        totems.applyResurrection(player, found, true);
+        totems.applyResurrection(player, result.totem(), true);
     }
 }

@@ -86,6 +86,12 @@ public final class TotemsConfig {
 
         int stackSize = TotemDefinition.clampStackSize(section.getInt("stack-size", 1), id, onWarning);
 
+        // Read as a long, not an int: a cooldown of a week is 604800 seconds, which fits an int, but
+        // the value is multiplied into epoch millis downstream and a long here keeps the whole chain
+        // one type. An absent key is NO_COOLDOWN, which is also what an explicit 0 means.
+        long cooldownSeconds = TotemDefinition.clampCooldownSeconds(
+                section.getLong("cooldown", TotemDefinition.NO_COOLDOWN), id, onWarning);
+
         String displayName = section.getString("display-name");
         if (displayName != null && displayName.isBlank()) displayName = null;
 
@@ -119,7 +125,7 @@ public final class TotemsConfig {
         String permission = section.getString("permission");
         if (permission != null && permission.isBlank()) permission = null;
 
-        return new TotemDefinition(id, displayName, lore, item, stackSize, itemModel,
+        return new TotemDefinition(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel,
                 customModelData, effects, skills, consume, healToFull, permission);
     }
 }

@@ -36,6 +36,35 @@
 #                                 how it has to work: the game compares components to decide
 #                                 whether stacks merge, and the size IS a component.
 #
+#  cooldown: 0                    How long, IN SECONDS, before this type can save the SAME player
+#                                 again. 0 or omitted means no cooldown at all, which is what
+#                                 every totem does by default.
+#
+#                                 Per player, per type. Two players never affect each other, and a
+#                                 player waiting on `ember` can still be saved by `guardian` in the
+#                                 same breath — a totem on cooldown is treated as NOT USABLE, so
+#                                 the plugin simply keeps looking through the inventory. The player
+#                                 only dies when nothing at all is available, and only then are
+#                                 they told how long is left (one message, never one per totem).
+#
+#                                 Negative values are treated as 0 and logged, the same way an
+#                                 out-of-range stack-size is clamped.
+#
+#                                 SURVIVES RESTARTS. This is the one thing the plugin stores in a
+#                                 database rather than inside the item — a cooldown is a fact about
+#                                 a player, and there is nowhere in an item to put it. Configure
+#                                 where it is stored in data.yml; the default needs no setup.
+#
+#                                 Two permissions skip the wait entirely, and a player holding
+#                                 either has NO cooldown recorded for them at all:
+#
+#                                   polaroidtotems.cooldown.bypass            every type
+#                                   polaroidtotems.cooldown.bypass.<totemid>  one type, e.g.
+#                                                                             ...bypass.ember
+#
+#                                 Both default to op. Grant `...bypass.*` in your permission plugin
+#                                 to exempt someone from every type without listing them.
+#
 #  display-name: '<MiniMessage>'  The item's name. Omit to keep the item's own name.
 #  lore:                          Lore lines, MiniMessage, one per entry. Omit to leave alone.
 #    - '<MiniMessage>'
@@ -148,6 +177,10 @@ totems:
     # Raise this to let ordinary totems stack. 16 is a comfortable choice for a survival server;
     # 1 keeps strict vanilla behaviour.
     stack-size: 16
+    # No cooldown, deliberately. This entry describes the PLAIN Totem of Undying — the item a
+    # player who has never heard of this plugin already knows — and putting it on a timer would
+    # change vanilla behaviour for everyone on the server. Give cooldowns to the custom types.
+    cooldown: 0
     consume: true
     heal-to-full: false
     effects: []
@@ -190,6 +223,10 @@ totems:
   ember:
     item: vanilla
     stack-size: 16
+    # Five minutes. Stacking sixteen of these would otherwise make lava free: the cooldown is what
+    # keeps a cheap, high-stacking totem from being an infinite one. The player's OTHER types are
+    # unaffected while this one is waiting.
+    cooldown: 300
     # The legacy route, shown here so both appear in this file. Use it only when your pack already
     # selects on custom_model_data; prefer item-model (see `guardian` above) for anything new.
     # custom-model-data: 1002
@@ -228,6 +265,9 @@ totems:
   eclipse:
     item: vanilla
     stack-size: 1
+    # One hour. The strongest type on the server, so the limit is time rather than supply — a
+    # player who buys ten of these still only gets one save an hour out of them.
+    cooldown: 3600
     display-name: '<#cd80f7>ᴇᴄʟɪᴘsᴇ ᴛᴏᴛᴇᴍ'
     lore:
       - '<#E9FDFB>Death refuses you, briefly.'

@@ -78,7 +78,8 @@ public final class TotemRegistry {
     }
 
     /**
-     * The fallback vanilla entry: ordinary stack size, no custom effects, no skills, no permission.
+     * The fallback vanilla entry: ordinary stack size, no cooldown, no custom effects, no skills,
+     * no permission.
      *
      * <p>Kept identical to what a server owner would get from an empty {@code vanilla:} section, so
      * deleting that section from the file changes nothing.
@@ -90,6 +91,7 @@ public final class TotemRegistry {
                 List.of(),
                 "vanilla:TOTEM_OF_UNDYING",
                 1,
+                TotemDefinition.NO_COOLDOWN, // the plain totem is always ready, exactly like vanilla
                 null, // item-model: leave the vanilla totem looking like the vanilla totem
                 null, // custom-model-data: likewise
                 List.of(),

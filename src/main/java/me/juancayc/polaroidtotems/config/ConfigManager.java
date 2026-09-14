@@ -1,5 +1,6 @@
 package me.juancayc.polaroidtotems.config;
 
+import me.juancayc.polaroidtotems.domain.WorldBlacklist;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Sound;
@@ -17,14 +18,39 @@ public final class ConfigManager {
 
     private final JavaPlugin plugin;
 
+    /**
+     * The parsed {@code worlds:} section, rebuilt on every reload.
+     *
+     * <p>Volatile and swapped wholesale, exactly like {@link
+     * me.juancayc.polaroidtotems.totem.TotemRegistry}: a resurrection happening mid-reload must read
+     * one consistent snapshot, not a map being rebuilt underneath it. See {@link WorldBlacklist} for
+     * why this is a snapshot rather than a pair of config reads on the death path.
+     */
+    private volatile WorldBlacklist worldBlacklist = WorldBlacklist.empty();
+
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
         plugin.saveDefaultConfig();
+        reparseSnapshots();
     }
 
-    /** Re-reads config.yml from disk. */
+    /** Re-reads config.yml from disk and rebuilds every derived snapshot. */
     public void reload() {
         plugin.reloadConfig();
+        reparseSnapshots();
+    }
+
+    /**
+     * Rebuilds the values that are parsed once rather than read per call.
+     *
+     * <p>Only the hot-path ones live here. Every other getter below reads the config directly,
+     * because they are consulted on commands, on join and at most once per resurrection — costs that
+     * never show up in a profile.
+     */
+    private void reparseSnapshots() {
+        this.worldBlacklist = WorldBlacklist.parse(
+                cfg().getConfigurationSection("worlds"),
+                message -> plugin.getLogger().warning(message));
     }
 
     private FileConfiguration cfg() {
@@ -61,6 +87,43 @@ public final class ConfigManager {
     public @org.jetbrains.annotations.Nullable String activationPermission() {
         String raw = cfg().getString("activation.require-permission", "");
         return raw == null || raw.isBlank() ? null : raw;
+    }
+
+    // ----- worlds -------------------------------------------------------------------------------
+
+    /**
+     * Where totems are not allowed to work.
+     *
+     * <p>Returns the SNAPSHOT parsed at the last reload, not a fresh read of the file. That is the
+     * whole point: this is consulted from the resurrection path, and re-walking a
+     * {@code ConfigurationSection} there would pay YAML node lookups on the main thread on every
+     * lethal hit taken on the server. See {@link WorldBlacklist} for the case-handling rules.
+     *
+     * <p>Never null: an absent or malformed {@code worlds:} section parses to an empty blacklist
+     * that blocks nothing, so a caller never has to guard.
+     */
+    public WorldBlacklist worldBlacklist() {
+        return worldBlacklist;
+    }
+
+    /**
+     * The world names in which NO totem works, lowercased.
+     *
+     * <p>Thin accessor over the snapshot, provided so a command or a future diagnostic can report
+     * the configured rules without reaching through to the domain object.
+     */
+    public java.util.Set<String> blacklistedWorlds() {
+        return worldBlacklist.blockedWorlds();
+    }
+
+    /**
+     * Lowercased world name to the lowercased totem ids blocked in that world.
+     *
+     * <p>Only the {@code per-totem-blacklist} half; a world in {@link #blacklistedWorlds()} blocks
+     * every type and does not appear here unless it also names specific ones.
+     */
+    public java.util.Map<String, java.util.Set<String>> blacklistedTotemsByWorld() {
+        return worldBlacklist.blockedTotemsByWorld();
     }
 
     // ----- normalization ----------------------------------------------------------------------

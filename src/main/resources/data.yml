@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------------------------
+#  PolaroidTotems — storage backend
+# ---------------------------------------------------------------------------------------------
+#  This file configures WHERE per-player totem cooldowns are stored. Nothing else in the plugin
+#  is persisted: a totem's identity travels inside the item itself, so only cooldowns need a
+#  database to survive a restart.
+#
+#  READ THIS BEFORE EDITING.
+#
+#  Changing `type`, the sqlite file name, or the MySQL host/database needs a FULL RESTART.
+#  `/totems reload` re-reads YAML only — it deliberately does not close or reopen the connection
+#  pool, because dropping a live pool mid-session would abort in-flight writes and lose the
+#  cooldowns that had not been flushed yet. A reload that finds a different backend here keeps
+#  the pool it already has and logs a warning telling you to restart.
+# ---------------------------------------------------------------------------------------------
+
+# Which backend to use.
+#
+#   sqlite -> a local file under plugins/PolaroidTotems/data/. The default, and the right answer
+#             for a single server. No setup, no credentials, nothing to install.
+#   mysql  -> a remote MySQL or MariaDB server. Use this when several servers share one network
+#             and a cooldown burned on one of them must count on the others.
+type: sqlite
+
+sqlite:
+  # File NAME only, never a path. The file is always created at
+  # plugins/PolaroidTotems/data/<file>, and the data/ folder is created for you.
+  #
+  # It lives in its own folder on purpose: a .db sitting next to the YAML files is eventually read
+  # as text by something that walks the plugin folder, which stalls the main thread.
+  file: totems.db
+
+mysql:
+  # Only read when `type` is mysql. Ignored entirely under sqlite.
+  host: 127.0.0.1
+  port: 3306
+  database: polaroidtotems
+  username: root
+  password: ''
+
+  # How many connections the pool may open. 8 is comfortable for one server; raise it only if you
+  # are actually running several servers against this database and have measured contention.
+  #
+  # There is no equivalent key for sqlite, deliberately. SQLite allows exactly one writer, so a
+  # pool larger than 1 does not parallelise anything — the extra connections simply queue on the
+  # write lock while holding pool slots, which makes contention worse rather than better.
+  pool-size: 8

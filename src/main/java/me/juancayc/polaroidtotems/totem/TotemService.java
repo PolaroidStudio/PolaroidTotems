@@ -8,6 +8,7 @@ import me.juancayc.polaroidtotems.domain.TotemEffectSpec;
 import me.juancayc.polaroidtotems.item.TotemStamper;
 import me.juancayc.polaroidtotems.messaging.MessageService;
 import me.juancayc.polaroidtotems.skill.MythicSkillHook;
+import me.juancayc.polaroidtotems.util.DurationFormat;
 import me.juancayc.polaroidtotems.util.SoundService;
 import org.bukkit.EntityEffect;
 import org.bukkit.Material;
@@ -34,10 +35,11 @@ public final class TotemService {
     private final MessageService messages;
     private final SoundService sounds;
     private final MythicSkillHook skills;
+    private final CooldownService cooldowns;
 
     public TotemService(Plugin plugin, ConfigManager config, TotemsConfig totems,
                         TotemStamper stamper, MessageService messages, SoundService sounds,
-                        MythicSkillHook skills) {
+                        MythicSkillHook skills, CooldownService cooldowns) {
         this.plugin = plugin;
         this.config = config;
         this.totems = totems;
@@ -45,10 +47,47 @@ public final class TotemService {
         this.messages = messages;
         this.sounds = sounds;
         this.skills = skills;
+        this.cooldowns = cooldowns;
     }
 
     /** One totem found somewhere in an inventory, with the slot it was found in. */
     public record FoundTotem(int slot, ItemStack stack, TotemDefinition definition) {}
+
+    /**
+     * The outcome of one inventory search: the totem to use, or why there was none.
+     *
+     * <p>Richer than a nullable {@link FoundTotem} for exactly one reason — the cooldown message.
+     * A player dying is a noisy moment, and a player carrying four totems of three types would
+     * otherwise receive one refusal line per scanned stack. So the search does not message anybody:
+     * it REPORTS the nearest cooldown it had to skip, and the caller decides whether that is worth
+     * saying at all. It never is when a later totem saved the player.
+     *
+     * @param totem            the totem that will be used, or null when none was usable
+     * @param blockedDefinition the type whose cooldown came closest to expiring among those skipped,
+     *                         or null when no totem was skipped for a cooldown
+     * @param blockedRemainingMillis how long that type still has to wait
+     */
+    public record SearchResult(@Nullable FoundTotem totem,
+                               @Nullable TotemDefinition blockedDefinition,
+                               long blockedRemainingMillis) {
+
+        private static final SearchResult NOTHING = new SearchResult(null, null, 0L);
+
+        /** No totem, and nothing worth telling the player about. */
+        public static SearchResult nothing() {
+            return NOTHING;
+        }
+
+        /** True when a totem was found and the player is about to be saved. */
+        public boolean found() {
+            return totem != null;
+        }
+
+        /** True when nothing was usable AND at least one totem was withheld by a cooldown. */
+        public boolean blockedByCooldown() {
+            return totem == null && blockedDefinition != null;
+        }
+    }
 
     /**
      * Finds the first usable totem anywhere in the player's inventory.
@@ -57,48 +96,159 @@ public final class TotemService {
      * index order, then armour when {@code activation.include-armor-slots} is on. A player who
      * wants a specific totem used first puts it in their hand, exactly as in vanilla.
      *
-     * @return null when nothing usable was found — no totem at all, or only totems whose type
-     *         requires a permission the player lacks
+     * <p>Kept as the narrow answer for callers that only want the totem. Everything that needs to
+     * know WHY there was none goes through {@link #searchUsableTotem}.
+     *
+     * @return null when nothing usable was found — no totem at all, only totems whose type requires
+     *         a permission the player lacks, only types blocked in this world, or only types the
+     *         player is still on cooldown for
      */
     public @Nullable FoundTotem findUsableTotem(Player player) {
-        PlayerInventory inventory = player.getInventory();
+        return searchUsableTotem(player, System.currentTimeMillis()).totem();
+    }
 
-        FoundTotem hand = candidate(player, inventory.getHeldItemSlot(), inventory.getItem(inventory.getHeldItemSlot()));
-        if (hand != null) return hand;
+    /**
+     * The full search, including why nothing was usable.
+     *
+     * @param now one clock reading for the whole search, so every totem in the inventory is judged
+     *            against the same instant. Taking {@code System.currentTimeMillis()} per slot would
+     *            let a long inventory scan expire a cooldown halfway through its own decision
+     */
+    public SearchResult searchUsableTotem(Player player, long now) {
+        // The GLOBAL world blacklist short-circuits the entire search rather than being re-asked per
+        // slot. In a blacklisted world the answer is the same for every totem in every slot, so
+        // walking 41 slots to reach it would be 41 hash lookups, a registry resolve and a PDC read
+        // each, on the main thread, on every lethal hit taken in that world. One lookup answers it.
+        //
+        // It is also the honest reading of the key: `worlds.blacklist` says no totem works here,
+        // which is a statement about the world, not about any totem.
+        if (config.worldBlacklist().isWorldBlocked(player.getWorld().getName())) {
+            // Deliberately reported as "nothing", not as a cooldown: the player is not waiting for
+            // anything and telling them a duration would be a lie.
+            return SearchResult.nothing();
+        }
+
+        PlayerInventory inventory = player.getInventory();
+        Search search = new Search(player, now);
+
+        FoundTotem hand = search.candidate(inventory.getHeldItemSlot(),
+                inventory.getItem(inventory.getHeldItemSlot()));
+        if (hand != null) return search.using(hand);
 
         // 40 is the off-hand slot index in a PlayerInventory.
-        FoundTotem offHand = candidate(player, 40, inventory.getItemInOffHand());
-        if (offHand != null) return offHand;
+        FoundTotem offHand = search.candidate(40, inventory.getItemInOffHand());
+        if (offHand != null) return search.using(offHand);
 
         // Storage = the 36 main slots (hotbar + the three rows), excluding armour and off hand.
         ItemStack[] storage = inventory.getStorageContents();
         for (int slot = 0; slot < storage.length; slot++) {
-            FoundTotem found = candidate(player, slot, storage[slot]);
-            if (found != null) return found;
+            FoundTotem found = search.candidate(slot, storage[slot]);
+            if (found != null) return search.using(found);
         }
 
         if (config.activateFromArmor()) {
             ItemStack[] armor = inventory.getArmorContents();
             for (int index = 0; index < armor.length; index++) {
                 // Armour slots start at 36 in a PlayerInventory's flat index space.
-                FoundTotem found = candidate(player, 36 + index, armor[index]);
-                if (found != null) return found;
+                FoundTotem found = search.candidate(36 + index, armor[index]);
+                if (found != null) return search.using(found);
             }
         }
-        return null;
+        return search.exhausted();
     }
 
-    private @Nullable FoundTotem candidate(Player player, int slot, @Nullable ItemStack stack) {
-        if (!isTotemMaterial(stack)) return null;
+    /**
+     * One inventory walk, carrying the per-search state {@link #candidate} needs.
+     *
+     * <p>A small object rather than three parameters threaded through every call, because the
+     * interesting part — remembering the closest cooldown across slots — is state, and state passed
+     * as arguments is state that eventually gets passed wrong.
+     *
+     * <p>Allocated once per resurrection, which is a rare event by definition. This is not a
+     * per-tick path.
+     */
+    private final class Search {
 
-        // An untagged totem is the reserved vanilla type by definition, so a server that never
-        // stamped anything still gets the configured vanilla behaviour.
-        TotemDefinition definition = totems.registry().resolveOrVanilla(stamper.readType(stack));
+        private final Player player;
+        private final long now;
 
-        String permission = definition.permission();
-        if (permission != null && !player.hasPermission(permission)) return null;
+        private @Nullable TotemDefinition nearestBlocked;
+        private long nearestRemainingMillis = Long.MAX_VALUE;
 
-        return new FoundTotem(slot, stack, definition);
+        private Search(Player player, long now) {
+            this.player = player;
+            this.now = now;
+        }
+
+        /**
+         * Decides whether one stack is a totem this player may be saved by, right now, here.
+         *
+         * <p>Every rejection returns null so the caller's loop falls through to the NEXT totem. That
+         * is the correct behaviour for all three rules: a player carrying an on-cooldown {@code
+         * ember} and a ready {@code guardian} is saved by the guardian, not killed by the ember.
+         */
+        private @Nullable FoundTotem candidate(int slot, @Nullable ItemStack stack) {
+            if (!isTotemMaterial(stack)) return null;
+
+            // An untagged totem is the reserved vanilla type by definition, so a server that never
+            // stamped anything still gets the configured vanilla behaviour.
+            TotemDefinition definition = totems.registry().resolveOrVanilla(stamper.readType(stack));
+
+            String permission = definition.permission();
+            if (permission != null && !player.hasPermission(permission)) return null;
+
+            // Per-totem world rule. The global one was answered before the walk began, so this is
+            // only ever the `per-totem-blacklist` half.
+            if (config.worldBlacklist().isBlocked(player.getWorld().getName(), definition.id())) {
+                return null;
+            }
+
+            long remaining = cooldowns.remainingMillis(player, definition, now);
+            if (remaining > 0L) {
+                // Remembered, not announced. Whether the player hears about this at all depends on
+                // whether a LATER slot saves them, which is not known yet.
+                if (remaining < nearestRemainingMillis) {
+                    nearestRemainingMillis = remaining;
+                    nearestBlocked = definition;
+                }
+                return null;
+            }
+
+            return new FoundTotem(slot, stack, definition);
+        }
+
+        /** A totem was found: nothing skipped along the way is worth mentioning. */
+        private SearchResult using(FoundTotem found) {
+            return new SearchResult(found, null, 0L);
+        }
+
+        /**
+         * The walk finished with nothing usable.
+         *
+         * <p>Reports the cooldown closest to expiring, of all the ones skipped. That is the most
+         * useful single number: it is when the player can next expect to be saved, and it is the
+         * only one that stays true no matter which of their totems they were counting on.
+         */
+        private SearchResult exhausted() {
+            return nearestBlocked == null
+                    ? SearchResult.nothing()
+                    : new SearchResult(null, nearestBlocked, nearestRemainingMillis);
+        }
+    }
+
+    /**
+     * Tells a player, exactly once, that a cooldown is why no totem saved them.
+     *
+     * <p>Called from the listener after the search came back empty, and only then — which is the
+     * entire anti-spam design. The search itself sends nothing, so a player carrying six totems gets
+     * one line rather than six, and a player whose seventh totem worked gets none at all.
+     */
+    public void notifyBlockedByCooldown(Player player, SearchResult result) {
+        if (!result.blockedByCooldown()) return;
+
+        messages.sendPrefixed(player, "totem.cooldown",
+                "%totem%", messages.escape(result.blockedDefinition().id()),
+                "%time%", DurationFormat.remaining(result.blockedRemainingMillis()));
     }
 
     /**
@@ -130,6 +280,13 @@ public final class TotemService {
         if (consumeManually && definition.consume()) {
             consumeOne(player, found);
         }
+
+        // Started here rather than in the search, because the search only decides what COULD be
+        // used: on the hand-held path vanilla may still have its own reasons, and a cooldown burned
+        // for a resurrection that did not happen would be a totem stolen from the player.
+        //
+        // Memory-only and immediate — see CooldownService. This adds no I/O to the death path.
+        cooldowns.startCooldown(player, definition, System.currentTimeMillis());
 
         if (config.playAnimation()) {
             // The resurrect animation does NOT play by itself on the forced path — vanilla only

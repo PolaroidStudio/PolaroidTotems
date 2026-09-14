@@ -75,14 +75,31 @@ dependencies {
     // to abandoned v4 builds. See MythicSkillHook, which is the only class that touches it.
     compileOnly("io.lumine:Mythic-Dist:5.13.0")
 
-    // No database: this plugin persists nothing per player. Totem identity travels in the item's
-    // own PDC, so there is no loader class, no `loader:` key and no Hikari/JDBC dependency.
+    // Database libraries for per-player totem cooldowns, which are the one thing this plugin has to
+    // persist: a totem's identity travels in the item's own PDC, but a cooldown is a fact about a
+    // PLAYER and has to survive a restart.
+    //
+    // compileOnly, never `implementation`, and never shaded. These reach the server at runtime
+    // through PolaroidTotemsLoader (paper-plugin.yml's `loader:` key), which resolves them from
+    // Maven Central at load time. Shading them would bloat the jar with sqlite-jdbc's per-platform
+    // native binaries and risk clashing with whatever another plugin already loaded.
+    //
+    // MySQL is compiled in even though sqlite is the default, so that flipping `type: mysql` in
+    // data.yml works on a plain restart rather than needing a different jar.
+    compileOnly("com.zaxxer:HikariCP:7.0.2")
+    compileOnly("org.xerial:sqlite-jdbc:3.50.3.0")
+    compileOnly("com.mysql:mysql-connector-j:9.3.0")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.jupiter:junit-jupiter-params")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation(paper1211)
+
+    // The tests cover the pure halves (cache, clamping, formatting, blacklist predicate) and never
+    // open a connection, but SqlCooldownRepository still has to COMPILE for the test source set.
+    testImplementation("com.zaxxer:HikariCP:7.0.2")
+    testImplementation("org.xerial:sqlite-jdbc:3.50.3.0")
 }
 
 // The 26.2 API jar declares `org.gradle.jvm.version = 25`, so Gradle refuses to hand it to a
@@ -124,6 +141,17 @@ dependencies {
     // @Nullable/@NotNull, which normally arrive transitively through paper-api; with a hand-built
     // configuration they have to be named. Compile-time only — annotations are not retained.
     paper262Classpath("org.jetbrains:annotations:26.0.2")
+
+    // The same database coordinates as the compileOnly block above. This configuration is built by
+    // hand and inherits nothing from `compileOnly`, so every dependency the sources touch has to be
+    // repeated here or the 26.x jar fails to compile — SqlCooldownRepository imports Hikari, and
+    // PolaroidTotemsLoader imports Paper's own MavenLibraryResolver (which comes from paper-api).
+    //
+    // Non-transitive for the same reason as Nexo and Mythic above: Hikari pulls SLF4J, and the JDBC
+    // drivers pull test and tooling trees we compile against none of.
+    paper262Classpath("com.zaxxer:HikariCP:7.0.2") { isTransitive = false }
+    paper262Classpath("org.xerial:sqlite-jdbc:3.50.3.0") { isTransitive = false }
+    paper262Classpath("com.mysql:mysql-connector-j:9.3.0") { isTransitive = false }
 }
 
 tasks.withType<JavaCompile> {

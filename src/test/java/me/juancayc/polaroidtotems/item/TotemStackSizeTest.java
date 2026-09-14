@@ -77,9 +77,11 @@ class TotemStackSizeTest {
     @DisplayName("a definition reports whether it is the reserved vanilla type")
     void vanillaIdIsRecognised() {
         TotemDefinition vanilla = new TotemDefinition(TotemDefinition.VANILLA_ID, null, List.of(),
-                "vanilla:TOTEM_OF_UNDYING", 16, null, null, List.of(), List.of(), true, false, null);
+                "vanilla:TOTEM_OF_UNDYING", 16, TotemDefinition.NO_COOLDOWN, null, null,
+                List.of(), List.of(), true, false, null);
         TotemDefinition custom = new TotemDefinition("guardian", null, List.of(),
-                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), List.of(), true, true, null);
+                "vanilla:TOTEM_OF_UNDYING", 4, TotemDefinition.NO_COOLDOWN, null, null,
+                List.of(), List.of(), true, true, null);
 
         assertTrue(vanilla.isVanilla());
         assertFalse(custom.isVanilla());
@@ -96,7 +98,8 @@ class TotemStackSizeTest {
                 new ArrayList<>(List.of(new MythicSkillSpec("EclipseRevive", 1.0f, true)));
 
         TotemDefinition definition = new TotemDefinition("guardian", null, mutableLore,
-                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), mutableSkills, true, false, null);
+                "vanilla:TOTEM_OF_UNDYING", 4, TotemDefinition.NO_COOLDOWN, null, null,
+                List.of(), mutableSkills, true, false, null);
 
         mutableLore.add("a line added after construction");
         mutableSkills.add(new MythicSkillSpec("AddedAfterConstruction", 1.0f, true));
@@ -113,7 +116,8 @@ class TotemStackSizeTest {
         // The compact constructor accepts null for every list so a future caller cannot hand the
         // rest of the plugin a definition whose effects() or skills() throws on iteration.
         TotemDefinition definition = new TotemDefinition("guardian", null, null,
-                "vanilla:TOTEM_OF_UNDYING", 4, null, null, null, null, true, false, null);
+                "vanilla:TOTEM_OF_UNDYING", 4, TotemDefinition.NO_COOLDOWN, null, null,
+                null, null, true, false, null);
 
         assertTrue(definition.lore().isEmpty());
         assertTrue(definition.effects().isEmpty());

@@ -59,7 +59,7 @@ class SkillValidatorTest {
             skills.add(new MythicSkillSpec(name, 1.0f, true));
         }
         return new TotemDefinition(id, null, List.of(), "vanilla:TOTEM_OF_UNDYING", 1,
-                null, null, List.of(), skills, true, false, null);
+                TotemDefinition.NO_COOLDOWN, null, null, List.of(), skills, true, false, null);
     }
 
     private static TotemRegistry registryOf(TotemDefinition... definitions) {

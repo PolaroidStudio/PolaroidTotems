@@ -38,6 +38,58 @@ activation:
   require-permission: ''
 
 # ---------------------------------------------------------------------------------------------
+#  Worlds
+# ---------------------------------------------------------------------------------------------
+#  Where totems are not allowed to save anyone. Both keys below are optional: leave them empty
+#  and totems work everywhere, which is the default.
+#
+#  A blocked totem is treated as NOT USABLE rather than as a refusal. That distinction matters:
+#  the plugin keeps looking through the rest of the inventory, so a player carrying a blocked
+#  `ember` and an allowed `guardian` is saved by the guardian. Only when nothing at all is usable
+#  does the player die.
+#
+#  WORLD NAMES ARE MATCHED CASE-INSENSITIVELY. Minecraft's world names are case-sensitive on disk
+#  (`world_nether` is not `World_Nether`), but a blacklist that silently fails because of one
+#  capital letter is a safety rule that does not work. Both sides are lowercased before they are
+#  compared, so write the name however you like. The only cost is that two worlds whose names
+#  differ ONLY by case cannot be told apart here.
+#
+#  These are read once per reload, not once per death, so a long list costs nothing at runtime.
+worlds:
+  # No totem of any type works in these worlds, for anyone.
+  #
+  # Use it for a lobby, a hub, an event arena, or a world where dying is supposed to mean
+  # something. This is checked before the inventory is even searched, so it is also the cheapest
+  # of the two rules.
+  #
+  # Shipped EMPTY with the example commented out, so installing this plugin never silently turns
+  # totems off in a world you did not ask about. Uncomment and edit to switch it on.
+  blacklist: []
+  # blacklist:
+  #   - world_nether
+  #   - spawn_lobby
+
+  # Specific totem types disabled in specific worlds. Everything not listed still works there.
+  #
+  # The key is a world name; the list under it is totem ids exactly as totems.yml spells them.
+  # Ids are lowercased when read, the same way totems.yml lowercases its keys, so `Ember` and
+  # `ember` are the same type here too.
+  #
+  # An id that no longer exists in totems.yml is harmless — it simply never matches anything.
+  #
+  # A world that also appears in `blacklist:` above makes its entry here redundant: the global
+  # rule already blocks every type.
+  #
+  # Shipped EMPTY, for the same reason as `blacklist:` above. Uncomment and edit to switch it on.
+  per-totem-blacklist: {}
+  # per-totem-blacklist:
+  #   world_the_end:
+  #     - ember
+  #     - guardian
+  #   pvp_arena:
+  #     - frost
+
+# ---------------------------------------------------------------------------------------------
 #  Normalization
 # ---------------------------------------------------------------------------------------------
 #  Read this before turning anything here off.

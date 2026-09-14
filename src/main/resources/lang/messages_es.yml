@@ -21,6 +21,7 @@ general:
 
 totem:
   saved: '<#95d027>Un totem <#f2c42f>%totem%<#95d027> te trajo de vuelta.'
+  cooldown: '<#eb4b30>Tu totem <#f2c42f>%totem%<#eb4b30> aun se esta recargando: quedan <#f2c42f>%time%<#eb4b30>.'
   given: '<#95d027>Entregaste <#f2c42f>%amount%x %totem%<#95d027> a <#f2c42f>%player%<#95d027>.'
   received: '<#95d027>Recibiste <#f2c42f>%amount%x %totem%<#95d027>.'
   unknown_type: '<#eb4b30>No existe ningun tipo de totem llamado <#f2c42f>%totem%<#eb4b30>.'
