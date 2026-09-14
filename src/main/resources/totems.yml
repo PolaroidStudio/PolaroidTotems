@@ -98,6 +98,33 @@
 #                                 on a resurrection. Naming one of those three here simply
 #                                 replaces vanilla's version with yours.
 #
+#  skills:                        MythicMobs skills cast on the same tick as the effects above,
+#    - skill: MyTotemSkill        just after them. REQUIRES MYTHICMOBS. Without it this whole key
+#      power: 1.0                 is ignored silently — the totem still works, it just casts
+#      target-self: true          nothing, so a config is safe to share between servers.
+#
+#                                 skill:       The skill's internal name, exactly as your Mythic
+#                                              skill file declares it. Not validated when this file
+#                                              is read: MythicMobs may not have loaded yet, and
+#                                              `/mm reload` can change the answer afterwards. A name
+#                                              Mythic does not know is logged when it fails to cast.
+#                                 power:       Mythic's power multiplier, 1.0 being neutral.
+#                                              Negatives are clamped to 0.
+#                                 target-self: true hands the revived player to the skill as its
+#                                              only entity target. false leaves the target list
+#                                              empty so the skill's own @targeter decides — that is
+#                                              what you want for an area effect centred on the
+#                                              player rather than applied to them.
+#
+#                                 The player is always the CASTER and the TRIGGER, and the cast
+#                                 origin is where they died, whatever target-self says.
+#
+#                                 Inside the skill you can read which totem invoked it:
+#                                   <caster.var.totem_type>   the totem's id, e.g. `guardian`
+#                                   <caster.var.totem_power>  the `power:` value above
+#                                 So one shared skill can branch per totem instead of you writing
+#                                 a near-identical skill for every type.
+#
 # ---------------------------------------------------------------------------------------------
 
 totems:
@@ -225,6 +252,23 @@ totems:
         seconds: 30
         level: 1
         particles: false
+    # A MythicMobs skill, commented out because it needs MythicMobs installed AND a skill by this
+    # name in your Mythic skill files — an unknown name costs you a warning in the console on every
+    # resurrection. Uncomment once both exist.
+    #
+    # Two entries showing the difference target-self makes: the first is applied TO the player (a
+    # buff, a heal, an aura), the second is centred on them and left to the skill's own @targeter
+    # (a shockwave that should hit the mobs around them, not the player it just saved).
+    #
+    # Inside either skill, <caster.var.totem_type> reads `eclipse` and <caster.var.totem_power>
+    # reads the `power:` written here — so one EclipseRevive skill can serve several totem types.
+    # skills:
+    #   - skill: EclipseRevive
+    #     power: 1.5
+    #     target-self: true
+    #   - skill: EclipseShockwave
+    #     power: 1.0
+    #     target-self: false
 
   # -------------------------------------------------------------------------------------------
   #  EXAMPLE 4 — backed by a Nexo item

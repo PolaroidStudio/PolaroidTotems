@@ -1,5 +1,6 @@
 package me.juancayc.polaroidtotems.config;
 
+import me.juancayc.polaroidtotems.domain.MythicSkillSpec;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.domain.TotemEffectSpec;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
@@ -106,6 +107,12 @@ public final class TotemsConfig {
         // add some explicitly.
         List<TotemEffectSpec> effects = TotemEffectSpec.parseList(section, "effects", onWarning);
 
+        // Parsed unconditionally, even on a server with no MythicMobs: the names are just strings
+        // here and the hook decides at cast time whether there is anything to call. Rejecting the
+        // key when Mythic is absent would make a config silently lose entries on a server that is
+        // about to install it.
+        List<MythicSkillSpec> skills = MythicSkillSpec.parseList(section, "skills", onWarning);
+
         boolean consume = section.getBoolean("consume", true);
         boolean healToFull = section.getBoolean("heal-to-full", false);
 
@@ -113,6 +120,6 @@ public final class TotemsConfig {
         if (permission != null && permission.isBlank()) permission = null;
 
         return new TotemDefinition(id, displayName, lore, item, stackSize, itemModel,
-                customModelData, effects, consume, healToFull, permission);
+                customModelData, effects, skills, consume, healToFull, permission);
     }
 }

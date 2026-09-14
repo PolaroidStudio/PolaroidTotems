@@ -31,6 +31,12 @@ repositories {
         name = "nexo"
         url = uri("https://repo.nexomc.com/releases")
     }
+    // MythicMobs is a PAID plugin, but its API artifacts are published here without authentication
+    // — no credentials, no token, no `mavenLocal()` workaround. Only the runtime jar is gated.
+    maven {
+        name = "lumine"
+        url = uri("https://mvn.lumine.io/repository/maven-public/")
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -63,6 +69,11 @@ dependencies {
     // into Paper's bootstrap tag registry, so the server-global MiniMessage already resolves them.
     // See MiniMessageProvider.
     compileOnly("com.nexomc:nexo:1.28.0")
+
+    // MythicMobs is used for SKILLS only (cast a named skill when a totem saves a player). The
+    // artifact is `Mythic-Dist`, not `MythicMobs` — v5 renamed it, and the old coordinate resolves
+    // to abandoned v4 builds. See MythicSkillHook, which is the only class that touches it.
+    compileOnly("io.lumine:Mythic-Dist:5.13.0")
 
     // No database: this plugin persists nothing per player. Totem identity travels in the item's
     // own PDC, so there is no loader class, no `loader:` key and no Hikari/JDBC dependency.
@@ -100,6 +111,14 @@ dependencies {
     // outright. The default compileOnly configuration never hits this because it is not resolved
     // transitively the same way.
     paper262Classpath("com.nexomc:nexo:1.28.0") { isTransitive = false }
+
+    // MythicMobs WITHOUT its transitive tree, for the same reason as Nexo above. Mythic-Dist is a
+    // shaded distribution that still declares a wide dependency tree (adventure, cloud, MythicLib's
+    // siblings, various NMS shims); we compile against a handful of its own classes in
+    // MythicSkillHook and need none of that. Several of those coordinates are not published to any
+    // repository we declare, so pulling them in fails resolution outright rather than merely
+    // bloating the classpath.
+    paper262Classpath("io.lumine:Mythic-Dist:5.13.0") { isTransitive = false }
 
     // Declared explicitly because the line above cuts transitives. The sources annotate with
     // @Nullable/@NotNull, which normally arrive transitively through paper-api; with a hand-built

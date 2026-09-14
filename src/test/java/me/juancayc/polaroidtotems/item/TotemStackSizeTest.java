@@ -1,5 +1,6 @@
 package me.juancayc.polaroidtotems.item;
 
+import me.juancayc.polaroidtotems.domain.MythicSkillSpec;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,24 +77,46 @@ class TotemStackSizeTest {
     @DisplayName("a definition reports whether it is the reserved vanilla type")
     void vanillaIdIsRecognised() {
         TotemDefinition vanilla = new TotemDefinition(TotemDefinition.VANILLA_ID, null, List.of(),
-                "vanilla:TOTEM_OF_UNDYING", 16, null, null, List.of(), true, false, null);
+                "vanilla:TOTEM_OF_UNDYING", 16, null, null, List.of(), List.of(), true, false, null);
         TotemDefinition custom = new TotemDefinition("guardian", null, List.of(),
-                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), true, true, null);
+                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), List.of(), true, true, null);
 
         assertTrue(vanilla.isVanilla());
         assertFalse(custom.isVanilla());
     }
 
     @Test
-    @DisplayName("a definition's lore and effect lists are defensive copies")
+    @DisplayName("a definition's lore and skill lists are defensive copies")
     void listsAreImmutable() {
         List<String> mutableLore = new ArrayList<>(List.of("a line"));
+        // The effects list is deliberately not exercised here: building a TotemEffectSpec needs a
+        // PotionEffectType, which only a live server's registry can produce. Skills have no such
+        // constraint — the spec is a plain record — so they stand in for the same guarantee.
+        List<MythicSkillSpec> mutableSkills =
+                new ArrayList<>(List.of(new MythicSkillSpec("EclipseRevive", 1.0f, true)));
+
         TotemDefinition definition = new TotemDefinition("guardian", null, mutableLore,
-                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), true, false, null);
+                "vanilla:TOTEM_OF_UNDYING", 4, null, null, List.of(), mutableSkills, true, false, null);
 
         mutableLore.add("a line added after construction");
+        mutableSkills.add(new MythicSkillSpec("AddedAfterConstruction", 1.0f, true));
 
         assertEquals(1, definition.lore().size(),
                 "mutating the caller's list must not reach inside the definition");
+        assertEquals(1, definition.skills().size(),
+                "mutating the caller's list must not reach inside the definition");
+    }
+
+    @Test
+    @DisplayName("null lists are normalised to empty ones rather than kept as nulls")
+    void nullListsBecomeEmpty() {
+        // The compact constructor accepts null for every list so a future caller cannot hand the
+        // rest of the plugin a definition whose effects() or skills() throws on iteration.
+        TotemDefinition definition = new TotemDefinition("guardian", null, null,
+                "vanilla:TOTEM_OF_UNDYING", 4, null, null, null, null, true, false, null);
+
+        assertTrue(definition.lore().isEmpty());
+        assertTrue(definition.effects().isEmpty());
+        assertTrue(definition.skills().isEmpty());
     }
 }

@@ -24,6 +24,10 @@ import java.util.List;
  * @param customModelData custom model data to stamp, or null to leave it untouched. Legacy route,
  *                       kept for resource packs that still select on it
  * @param effects        potion effects granted one tick after the resurrection
+ * @param skills         MythicMobs skills cast one tick after the resurrection. A separate list
+ *                       from {@code effects} because the two are unrelated: potion effects are
+ *                       vanilla and always available, skills need a third-party plugin and are
+ *                       silently skipped without it
  * @param consume        whether the totem is removed from the inventory when it saves the player
  * @param healToFull     whether the player is healed to their max health instead of vanilla's 1 HP
  * @param permission     permission required for this type to fire, or null for "anyone"
@@ -36,6 +40,7 @@ public record TotemDefinition(String id,
                               @Nullable String itemModel,
                               @Nullable Integer customModelData,
                               List<TotemEffectSpec> effects,
+                              List<MythicSkillSpec> skills,
                               boolean consume,
                               boolean healToFull,
                               @Nullable String permission) {
@@ -67,6 +72,7 @@ public record TotemDefinition(String id,
     public TotemDefinition {
         lore = lore == null ? List.of() : List.copyOf(lore);
         effects = effects == null ? List.of() : List.copyOf(effects);
+        skills = skills == null ? List.of() : List.copyOf(skills);
     }
 
     /** True for the reserved entry describing the plain Totem of Undying. */

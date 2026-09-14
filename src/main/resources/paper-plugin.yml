@@ -58,13 +58,24 @@ permissions:
     description: Give totems, list totem types and reload the configuration.
     default: op
 
-# MANDATORY for Nexo. paper-plugin.yml defaults join-classpath to FALSE (unlike legacy
-# plugin.yml, which effectively joined everything). Our NexoItemHook references Nexo's real
-# classes, so without this the very first call throws NoClassDefFoundError. The
-# isPluginEnabled() guard controls WHEN we call into Nexo, not WHETHER its classes resolve.
+# MANDATORY for both hooks below. paper-plugin.yml defaults join-classpath to FALSE (unlike legacy
+# plugin.yml, which effectively joined everything). NexoItemHook references Nexo's real classes and
+# MythicSkillHook references MythicMobs's, so without this the very first call into either throws
+# NoClassDefFoundError. The isPluginEnabled() guard inside each hook controls WHEN we call into that
+# plugin, not WHETHER its classes resolve — those are two different failures and only this key fixes
+# the second one.
+#
+# Both are `required: false`: each backs one optional feature (Nexo a totem's ITEM, MythicMobs a
+# totem's SKILLS), and a server with neither installed runs the plugin unchanged. `load: BEFORE`
+# because both must finish enabling before our onEnable constructs the hooks — and, for MythicMobs,
+# before any resurrection can ask it to cast.
 dependencies:
   server:
     Nexo:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    MythicMobs:
       load: BEFORE
       required: false
       join-classpath: true
