@@ -23,7 +23,12 @@ public final class TotemRegistry {
     private final Map<String, TotemDefinition> byId;
 
     private TotemRegistry(Map<String, TotemDefinition> byId) {
-        this.byId = Map.copyOf(byId);
+        // Collections.unmodifiableMap over a LinkedHashMap, NOT Map.copyOf. Map.copyOf returns an
+        // immutable HASH map, which discards insertion order entirely — so `all()` and `ids()` would
+        // hand back totems in an arbitrary, JVM-dependent sequence despite what they promise, and
+        // `/totems list` would shuffle its rows between restarts. The defensive copy is taken here
+        // so the caller's map cannot be mutated into this one afterwards.
+        this.byId = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(byId));
     }
 
     public static TotemRegistry of(Map<String, TotemDefinition> definitions) {
@@ -73,7 +78,7 @@ public final class TotemRegistry {
     }
 
     /**
-     * The fallback vanilla entry: ordinary stack size, no custom effects, no permission.
+     * The fallback vanilla entry: ordinary stack size, no custom effects, no skills, no permission.
      *
      * <p>Kept identical to what a server owner would get from an empty {@code vanilla:} section, so
      * deleting that section from the file changes nothing.
@@ -88,6 +93,7 @@ public final class TotemRegistry {
                 null, // item-model: leave the vanilla totem looking like the vanilla totem
                 null, // custom-model-data: likewise
                 List.of(),
+                List.of(), // skills: a plain totem casts nothing, with or without MythicMobs
                 true,
                 false,
                 null);
