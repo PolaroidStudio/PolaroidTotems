@@ -91,7 +91,7 @@ permissions:
   # `default: op` matches the rest of this file: the feature is on for ordinary players, and an
   # operator is exempt, which is what an operator testing a totem expects.
   polaroidtotems.cooldown.bypass:
-    description: Ignore every totem type's cooldown. Per-type: polaroidtotems.cooldown.bypass.<totemid>
+    description: "Ignore every totem type's cooldown. Per-type: polaroidtotems.cooldown.bypass.<totemid>"
     default: op
 
 # MANDATORY for both hooks below. paper-plugin.yml defaults join-classpath to FALSE (unlike legacy
