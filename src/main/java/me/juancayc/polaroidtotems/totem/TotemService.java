@@ -11,13 +11,19 @@ import me.juancayc.polaroidtotems.skill.MythicSkillHook;
 import me.juancayc.polaroidtotems.util.DurationFormat;
 import me.juancayc.polaroidtotems.util.SoundService;
 import org.bukkit.EntityEffect;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,10 +42,12 @@ public final class TotemService {
     private final SoundService sounds;
     private final MythicSkillHook skills;
     private final CooldownService cooldowns;
+    private final SafeGroundTracker safeGround;
 
     public TotemService(Plugin plugin, ConfigManager config, TotemsConfig totems,
                         TotemStamper stamper, MessageService messages, SoundService sounds,
-                        MythicSkillHook skills, CooldownService cooldowns) {
+                        MythicSkillHook skills, CooldownService cooldowns,
+                        SafeGroundTracker safeGround) {
         this.plugin = plugin;
         this.config = config;
         this.totems = totems;
@@ -48,6 +56,7 @@ public final class TotemService {
         this.sounds = sounds;
         this.skills = skills;
         this.cooldowns = cooldowns;
+        this.safeGround = safeGround;
     }
 
     /** One totem found somewhere in an inventory, with the slot it was found in. */
@@ -99,22 +108,42 @@ public final class TotemService {
      * <p>Kept as the narrow answer for callers that only want the totem. Everything that needs to
      * know WHY there was none goes through {@link #searchUsableTotem}.
      *
+     * <p>No damage is involved here, so the cause is unknown: a type restricted by {@code
+     * conditions.causes} is never returned, while unrestricted ones are.
+     *
      * @return null when nothing usable was found — no totem at all, only totems whose type requires
-     *         a permission the player lacks, only types blocked in this world, or only types the
-     *         player is still on cooldown for
+     *         a permission the player lacks, only types blocked in this world, only types the
+     *         player is still on cooldown for, or only types whose conditions do not match
      */
     public @Nullable FoundTotem findUsableTotem(Player player) {
-        return searchUsableTotem(player, System.currentTimeMillis()).totem();
+        return searchUsableTotem(player, System.currentTimeMillis(), null).totem();
+    }
+
+    /**
+     * The full search for an ordinary lethal hit — one vanilla itself would let a totem prevent.
+     *
+     * @param now   one clock reading for the whole search, so every totem in the inventory is judged
+     *              against the same instant. Taking {@code System.currentTimeMillis()} per slot would
+     *              let a long inventory scan expire a cooldown halfway through its own decision
+     * @param cause what the lethal hit was, or null when it could not be determined. Checked against
+     *              each type's {@code conditions}; see {@link
+     *              me.juancayc.polaroidtotems.domain.TotemConditions#matches}
+     */
+    public SearchResult searchUsableTotem(Player player, long now, @Nullable DamageCause cause) {
+        return searchUsableTotem(player, now, cause, false);
     }
 
     /**
      * The full search, including why nothing was usable.
      *
-     * @param now one clock reading for the whole search, so every totem in the inventory is judged
-     *            against the same instant. Taking {@code System.currentTimeMillis()} per slot would
-     *            let a long inventory scan expire a cooldown halfway through its own decision
+     * @param causeMustBeListed true for a death vanilla never lets a totem prevent (the void). Then
+     *                          only a type that LISTS {@code cause} in its conditions qualifies, and
+     *                          an unrestricted type — which ordinarily matches every cause — is
+     *                          skipped. See {@link
+     *                          me.juancayc.polaroidtotems.domain.TotemConditions#listsCause}
      */
-    public SearchResult searchUsableTotem(Player player, long now) {
+    public SearchResult searchUsableTotem(Player player, long now, @Nullable DamageCause cause,
+                                          boolean causeMustBeListed) {
         // The GLOBAL world blacklist short-circuits the entire search rather than being re-asked per
         // slot. In a blacklisted world the answer is the same for every totem in every slot, so
         // walking 41 slots to reach it would be 41 hash lookups, a registry resolve and a PDC read
@@ -129,7 +158,8 @@ public final class TotemService {
         }
 
         PlayerInventory inventory = player.getInventory();
-        Search search = new Search(player, now);
+        Search search = new Search(player, now, cause, causeMustBeListed,
+                player.getWorld().getEnvironment());
 
         FoundTotem hand = search.candidate(inventory.getHeldItemSlot(),
                 inventory.getItem(inventory.getHeldItemSlot()));
@@ -171,20 +201,27 @@ public final class TotemService {
 
         private final Player player;
         private final long now;
+        private final @Nullable DamageCause cause;
+        private final boolean causeMustBeListed;
+        private final World.Environment environment;
 
         private @Nullable TotemDefinition nearestBlocked;
         private long nearestRemainingMillis = Long.MAX_VALUE;
 
-        private Search(Player player, long now) {
+        private Search(Player player, long now, @Nullable DamageCause cause, boolean causeMustBeListed,
+                       World.Environment environment) {
             this.player = player;
             this.now = now;
+            this.cause = cause;
+            this.causeMustBeListed = causeMustBeListed;
+            this.environment = environment;
         }
 
         /**
          * Decides whether one stack is a totem this player may be saved by, right now, here.
          *
          * <p>Every rejection returns null so the caller's loop falls through to the NEXT totem. That
-         * is the correct behaviour for all three rules: a player carrying an on-cooldown {@code
+         * is the correct behaviour for all four rules: a player carrying an on-cooldown {@code
          * ember} and a ready {@code guardian} is saved by the guardian, not killed by the ember.
          */
         private @Nullable FoundTotem candidate(int slot, @Nullable ItemStack stack) {
@@ -202,6 +239,17 @@ public final class TotemService {
             if (config.worldBlacklist().isBlocked(player.getWorld().getName(), definition.id())) {
                 return null;
             }
+
+            // Conditions: this type was never meant for this kind of death. Checked BEFORE the
+            // cooldown on purpose — a void-only totem that is also on cooldown must not make a player
+            // who just died in lava hear "wait 4m", because no amount of waiting would have let that
+            // totem save them from lava. A condition skip is silent, like a permission skip.
+            if (!definition.conditions().matches(cause, environment)) return null;
+
+            // The stricter rule for deaths vanilla never lets a totem prevent: matching is not
+            // enough, the type must NAME the cause. An unrestricted type matches every cause, and
+            // letting it through here would turn every ordinary totem into a void rescue.
+            if (causeMustBeListed && !definition.conditions().listsCause(cause)) return null;
 
             long remaining = cooldowns.remainingMillis(player, definition, now);
             if (remaining > 0L) {
@@ -316,7 +364,82 @@ public final class TotemService {
                     "%totem%", messages.escape(definition.id()));
         }
 
+        // Scheduled BEFORE the after-effects, so when both land on the same tick (the default delay
+        // is one tick for each) the teleport runs first and the effects are applied to a player who
+        // is already safe. The order would be survivable the other way round — potion effects are
+        // kept across a teleport, cross-world included — but this way nothing depends on that.
+        scheduleRescue(player, definition);
         scheduleAfterEffects(player, definition);
+    }
+
+    /**
+     * Saves a player from a death vanilla never lets any totem prevent, then applies the totem.
+     *
+     * <p>Only the void reaches this. In 1.21.11 {@code out_of_world} damage is in the vanilla tag
+     * {@code #minecraft:bypasses_invulnerability}, and {@code LivingEntity#checkTotemDeathProtection}
+     * returns false for that tag BEFORE it raises {@code EntityResurrectEvent} — so for a void death
+     * the resurrect event simply never fires and the normal path cannot see it. The only hook left
+     * is the damage event itself, which the caller has just cancelled.
+     *
+     * <p>Because vanilla's resurrect branch never runs, everything it would have done is done here:
+     * the 1 HP, the cleared effects and vanilla's Regeneration II / Absorption II / Fire Resistance
+     * (the exact {@code DeathProtection.TOTEM_OF_UNDYING} values), then {@link #applyResurrection}
+     * with manual consumption, since no hand was ever emptied.
+     *
+     * @param lethalDamage the damage of the hit that was cancelled. Recorded as the player's last
+     *                     damage together with fresh invulnerability ticks, so the void hits of the
+     *                     next few ticks — which keep coming every tick while the player is below
+     *                     the world — are ignored until the one-tick-later rescue has moved them
+     */
+    public void resurrectWithoutVanilla(Player player, FoundTotem found, double lethalDamage) {
+        player.setHealth(1.0);
+
+        player.clearActivePotionEffects();
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 900, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 100, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 800, 0));
+
+        // Vanilla's invulnerability window only opens on damage that actually landed. The lethal hit
+        // was cancelled, so without this the very next tick's void damage lands in full.
+        player.setNoDamageTicks(player.getMaximumNoDamageTicks());
+        player.setLastDamage(lethalDamage);
+
+        applyResurrection(player, found, true);
+    }
+
+    /**
+     * Sends a saved player back to solid ground, one tick later, when the type asks for it.
+     *
+     * <p>One tick later rather than inline, for the same reason the effects wait: this runs inside
+     * the damage/resurrect handling of the current tick, and moving an entity in the middle of its
+     * own damage processing is asking the rest of that processing to act on a stale position.
+     *
+     * <p>{@code teleportAsync}, not {@code teleport}: under Folia the synchronous call is refused,
+     * and the destination may be in another region entirely. On plain Paper it completes on the
+     * main thread just the same. Fall distance and velocity are cleared both before the jump and
+     * after it lands — before, so nothing accumulated in the fall is carried; after, because the
+     * teleport is exactly where a stale downward velocity would otherwise survive.
+     */
+    private void scheduleRescue(Player player, TotemDefinition definition) {
+        if (!definition.returnToSafeGround()) return;
+
+        player.getScheduler().runDelayed(plugin, task -> {
+            if (!player.isOnline() || player.isDead()) return;
+
+            Location target = safeGround.rescueTarget(player);
+            resetMotion(player);
+            player.teleportAsync(target).thenAccept(moved -> {
+                if (!moved) return;
+                // Back onto the entity's own scheduler: the future may complete on a thread other
+                // than the one that owns the player once they have landed.
+                player.getScheduler().run(plugin, after -> resetMotion(player), null);
+            });
+        }, null, 1L);
+    }
+
+    private static void resetMotion(Player player) {
+        player.setFallDistance(0.0F);
+        player.setVelocity(new Vector(0, 0, 0));
     }
 
     /**

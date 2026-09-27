@@ -6,7 +6,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityResurrectEvent;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Turns {@link EntityResurrectEvent} into a custom-totem resurrection.
@@ -56,13 +59,23 @@ public final class ResurrectListener implements Listener {
         // mid-scan.
         long now = System.currentTimeMillis();
 
+        // What killed them, for each type's `conditions.causes`. Read once, before either branch.
+        DamageCause cause = lethalCause(player);
+
         if (handHeld) {
             // Vanilla is already resurrecting the player with a totem it found in a hand. It will
             // consume that totem and play the animation itself, so the plugin only adds this type's
             // custom effects on top. Nothing is un-cancelled here because nothing was cancelled.
             if (event.isCancelled()) return;
 
-            TotemService.SearchResult result = totems.searchUsableTotem(player, now);
+            //
+            // Conditions are handled exactly like cooldowns here, through the same search. If the
+            // hand-held type's conditions do not match this death, vanilla still saves the player
+            // (and still consumes that totem — the plugin cannot stop it without killing them), the
+            // search skips that type, and custom behaviour comes from the next usable totem it finds
+            // or from nobody. So a `voidwalker` held while dying in lava is spent as a plain totem:
+            // no slow falling, no rescue teleport, no cooldown started for it.
+            TotemService.SearchResult result = totems.searchUsableTotem(player, now, cause);
             if (!result.found()) {
                 // The hand-held branch deliberately says NOTHING about a cooldown. Vanilla is
                 // resurrecting this player with or without us — they are not being refused, so a
@@ -80,7 +93,7 @@ public final class ResurrectListener implements Listener {
         String permission = config.activationPermission();
         if (permission != null && !player.hasPermission(permission)) return;
 
-        TotemService.SearchResult result = totems.searchUsableTotem(player, now);
+        TotemService.SearchResult result = totems.searchUsableTotem(player, now, cause);
         if (!result.found()) {
             // THE one place a cooldown refusal is announced, and the reason the search itself sends
             // nothing. A player dying is a noisy moment: this sends at most one line no matter how
@@ -95,5 +108,29 @@ public final class ResurrectListener implements Listener {
 
         // consumeManually = true: vanilla took nothing, because it never saw a totem.
         totems.applyResurrection(player, result.totem(), true);
+    }
+
+    /**
+     * The cause of the hit that is killing this player right now.
+     *
+     * <p>{@link EntityResurrectEvent} carries no damage source of its own — its whole API is {@code
+     * getHand()} and cancellation. So the cause is read from {@code getLastDamageCause()}, which is
+     * reliable at this exact moment, and the ordering in the server is why (verified against the
+     * Paper 1.21.11 sources): {@code LivingEntity#hurtServer} fires the {@code EntityDamageEvent}
+     * first, and {@code CraftEventFactory#callEntityDamageEvent} stores it with {@code
+     * setLastDamageCause} as soon as it comes back un-cancelled. Only then is the damage applied,
+     * and only once health has reached zero does {@code checkTotemDeathProtection} raise the
+     * resurrect event — all inside the same call. So the stored event IS the lethal hit, never an
+     * older one.
+     *
+     * <p>Null when the player has never been damaged this session. Types restricted by cause then do
+     * not fire, which is the safe reading: a void-only totem must not fire for a death nobody can
+     * name. The one known blind spot is a resurrect raised WITHOUT a damage event in front of it
+     * (another plugin driving the death directly); the value is then whatever hit came before. No
+     * vanilla death takes that route.
+     */
+    private static @Nullable DamageCause lethalCause(org.bukkit.entity.Player player) {
+        EntityDamageEvent last = player.getLastDamageCause();
+        return last == null ? null : last.getCause();
     }
 }

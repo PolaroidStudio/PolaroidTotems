@@ -1,18 +1,23 @@
 package me.juancayc.polaroidtotems.config;
 
+import me.juancayc.polaroidtotems.domain.TotemConditions;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
+import org.bukkit.World;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -237,5 +242,101 @@ class TotemsConfigTest {
 
         assertNull(guardian.displayName());
         assertNull(guardian.permission(), "a blank permission must mean 'anyone', never 'permission \"\"'");
+    }
+
+    @Test
+    @DisplayName("conditions and rescue are parsed into the definition")
+    void parsesConditionsAndRescue() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  voidwalker:
+                    conditions:
+                      causes: [VOID]
+                      environments: [THE_END]
+                    rescue:
+                      return-to-safe-ground: true
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition voidwalker = TotemsConfig.parse(cfg, warnings::add).get("voidwalker");
+
+        assertNotNull(voidwalker);
+        assertEquals(Set.of(DamageCause.VOID), voidwalker.conditions().causes());
+        assertEquals(Set.of(World.Environment.THE_END), voidwalker.conditions().environments());
+        assertTrue(voidwalker.returnToSafeGround());
+        assertTrue(warnings.isEmpty(), "a well-formed void totem with a rescue warns about nothing");
+    }
+
+    @Test
+    @DisplayName("omitting conditions and rescue keeps the old behaviour: any death, no teleport")
+    void conditionsAndRescueDefaultOff() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  plain:
+                    stack-size: 8
+                """);
+
+        TotemRegistry registry = TotemsConfig.parse(cfg, warning -> {});
+
+        assertSame(TotemConditions.ANY, registry.get("plain").conditions());
+        assertEquals(false, registry.get("plain").returnToSafeGround());
+        assertSame(TotemConditions.ANY, registry.vanilla().conditions(),
+                "the synthesized vanilla entry must stay unrestricted too");
+        assertEquals(false, registry.vanilla().returnToSafeGround());
+    }
+
+    @Test
+    @DisplayName("a typo in conditions costs that entry, not the totem type")
+    void conditionTypoKeepsTheType() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  voidwalker:
+                    conditions:
+                      causes: [VOID, NOT_A_CAUSE]
+                    rescue:
+                      return-to-safe-ground: true
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition voidwalker = TotemsConfig.parse(cfg, warnings::add).get("voidwalker");
+
+        assertNotNull(voidwalker, "one bad value must not cost the whole type");
+        assertEquals(Set.of(DamageCause.VOID), voidwalker.conditions().causes());
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("NOT_A_CAUSE"));
+    }
+
+    @Test
+    @DisplayName("a VOID totem without a rescue is kept but warned about")
+    void voidWithoutRescueWarns() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  voidwalker:
+                    conditions:
+                      causes: [VOID]
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition voidwalker = TotemsConfig.parse(cfg, warnings::add).get("voidwalker");
+
+        assertNotNull(voidwalker);
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("return-to-safe-ground"));
+    }
+
+    @Test
+    @DisplayName("a conditions value that is not a section is ignored with a warning")
+    void nonSectionConditionsIsIgnored() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  voidwalker:
+                    conditions: VOID
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition voidwalker = TotemsConfig.parse(cfg, warnings::add).get("voidwalker");
+
+        assertSame(TotemConditions.ANY, voidwalker.conditions());
+        assertEquals(1, warnings.size());
     }
 }

@@ -1,6 +1,7 @@
 package me.juancayc.polaroidtotems.config;
 
 import me.juancayc.polaroidtotems.domain.MythicSkillSpec;
+import me.juancayc.polaroidtotems.domain.TotemConditions;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.domain.TotemEffectSpec;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
@@ -125,7 +126,29 @@ public final class TotemsConfig {
         String permission = section.getString("permission");
         if (permission != null && permission.isBlank()) permission = null;
 
+        // Both optional and both default to "exactly how a totem behaved before these keys existed":
+        // no conditions fires for any death anywhere, and no rescue teleports nobody.
+        if (section.contains("conditions") && !section.isConfigurationSection("conditions")) {
+            onWarning.accept("Totem '" + id + "': 'conditions' must be a section with 'causes:' and/or "
+                    + "'environments:' lists; ignoring it, so the totem is not restricted.");
+        }
+        TotemConditions conditions = TotemConditions.parse(
+                section.getConfigurationSection("conditions"), id, onWarning);
+
+        boolean returnToSafeGround = section.getBoolean("rescue.return-to-safe-ground", false);
+
+        // Not an error, but almost certainly a mistake worth one line: a VOID totem that does not
+        // move the player saves them at 1 HP while they are still falling through the void, so the
+        // very next void hit kills them anyway. The totem is spent for half a second of life.
+        if (conditions.listsCause(org.bukkit.event.entity.EntityDamageEvent.DamageCause.VOID)
+                && !returnToSafeGround) {
+            onWarning.accept("Totem '" + id + "' fires on VOID damage but has no "
+                    + "'rescue.return-to-safe-ground: true'; the player will be saved while still "
+                    + "in the void and die again moments later.");
+        }
+
         return new TotemDefinition(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel,
-                customModelData, effects, skills, consume, healToFull, permission);
+                customModelData, effects, skills, consume, healToFull, permission, conditions,
+                returnToSafeGround);
     }
 }

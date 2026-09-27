@@ -10,6 +10,8 @@ import me.juancayc.polaroidtotems.item.hooks.VanillaItemHook;
 import me.juancayc.polaroidtotems.listeners.CooldownListener;
 import me.juancayc.polaroidtotems.listeners.NormalizationListener;
 import me.juancayc.polaroidtotems.listeners.ResurrectListener;
+import me.juancayc.polaroidtotems.listeners.SafeGroundListener;
+import me.juancayc.polaroidtotems.listeners.VoidRescueListener;
 import me.juancayc.polaroidtotems.messaging.ColorFormats;
 import me.juancayc.polaroidtotems.messaging.MessageService;
 import me.juancayc.polaroidtotems.messaging.MiniMessageProvider;
@@ -23,6 +25,7 @@ import me.juancayc.polaroidtotems.storage.StorageException;
 import me.juancayc.polaroidtotems.storage.StorageSettings;
 import me.juancayc.polaroidtotems.totem.CooldownCache;
 import me.juancayc.polaroidtotems.totem.CooldownService;
+import me.juancayc.polaroidtotems.totem.SafeGroundTracker;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
 import me.juancayc.polaroidtotems.totem.TotemService;
 import me.juancayc.polaroidtotems.util.SoundService;
@@ -83,8 +86,13 @@ public final class PolaroidTotemsPlugin extends JavaPlugin {
         // no join event will ever fire for them.
         this.cooldownService.loadOnlinePlayers();
 
+        // Memory-only, like the cooldown cache, and fed by its own listener below. Tracked for every
+        // player whether or not any type uses `rescue.return-to-safe-ground`: the answer can change
+        // on /totems reload, and a tracker switched on only afterwards would know nothing yet.
+        SafeGroundTracker safeGround = new SafeGroundTracker();
+
         this.totemService = new TotemService(this, configManager, totemsConfig, stamper,
-                messageService, soundService, skillHook, cooldownService);
+                messageService, soundService, skillHook, cooldownService, safeGround);
 
         getServer().getPluginManager().registerEvents(
                 new ResurrectListener(configManager, totemService), this);
@@ -92,6 +100,10 @@ public final class PolaroidTotemsPlugin extends JavaPlugin {
                 new NormalizationListener(configManager, totemsConfig, stamper), this);
         getServer().getPluginManager().registerEvents(
                 new CooldownListener(cooldownService), this);
+        getServer().getPluginManager().registerEvents(
+                new SafeGroundListener(safeGround), this);
+        getServer().getPluginManager().registerEvents(
+                new VoidRescueListener(configManager, totemService), this);
 
         new CommandRegistrar(this, messageService, stamper).register();
 

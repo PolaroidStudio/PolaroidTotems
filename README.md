@@ -140,6 +140,9 @@ you that one type and logs a warning; it never takes the plugin down with it.
 | `heal-to-full` | boolean | `false` | `true` heals to the player's real max-health attribute instead of vanilla's 1 HP |
 | `permission` | string | unset (anyone) | A permission node. A player without it has the totem skipped entirely |
 | `effects` | list of mappings | empty | See below |
+| `conditions.causes` | list of strings | empty (any cause) | Bukkit `DamageCause` names, case-insensitive: `VOID`, `FALL`, `LAVA`, … The type only fires when the killing hit has one of these causes. Unknown names are skipped with a warning |
+| `conditions.environments` | list of strings | empty (any world) | `NORMAL`, `NETHER`, `THE_END`, `CUSTOM`, case-insensitive. The type only fires in worlds of these kinds. Unknown names are skipped with a warning |
+| `rescue.return-to-safe-ground` | boolean | `false` | `true` teleports the saved player, one tick later, back to the last block they stood on. See [Conditions and rescue](#conditions-and-rescue) |
 
 ### `effects` sub-keys
 
@@ -186,8 +189,54 @@ totems:
         particles: true
 ```
 
-`totems.yml` ships with this type plus two more (`ember`, a fire-resistance escape totem; `eclipse`,
-a permission-gated rarity) and a commented Nexo-backed example, all documented line by line.
+`totems.yml` ships with this type plus three more (`ember`, a fire-resistance escape totem; `eclipse`,
+a permission-gated rarity; `voidwalker`, an End-void rescue) and a commented Nexo-backed example, all
+documented line by line.
+
+### Conditions and rescue
+
+A type with a `conditions:` section only fires for the deaths it describes. When both lists are
+given, both must match. A type whose conditions do not match is **skipped by the search exactly like
+one on cooldown** — the plugin keeps looking through the inventory — except that the player is never
+told about it: no amount of waiting would have made that totem fire for this death.
+
+Held in a hand, a non-matching type still saves the player, because vanilla does that and the plugin
+cannot stop vanilla without killing them. It is spent as a plain totem: none of that type's effects,
+skills, rescue or cooldown apply. That is the same way a hand-held totem on cooldown is handled.
+
+**The void is special.** In vanilla, `out_of_world` damage is in `#minecraft:bypasses_invulnerability`,
+and the game checks that tag *before* it even looks for a totem — so `EntityResurrectEvent` never
+fires for a void death, and no ordinary totem can stop one. The plugin intercepts the lethal `VOID`
+damage event itself, and **only for types that list `VOID` in `conditions.causes`**. A type with no
+conditions never fires in the void, so adding a void totem changes nothing about the others. On that
+path the plugin cancels the hit and performs the whole resurrection itself, vanilla's Regeneration II,
+Absorption II and Fire Resistance included. A void totem found outside a hand still needs
+`activation.from-inventory` (and `activation.permission`, if set), like any inventory totem.
+
+`rescue.return-to-safe-ground: true` teleports the saved player one tick later to the last block they
+were standing on — not flying, not gliding, not in water or lava — centred on the block and facing
+the way they already were, with fall distance and velocity reset. The spot is tracked in memory
+only and forgotten on quit. **If no spot is known, or the known one is in a different world** (the
+player entered the End and fell before touching ground there), **they go to that world's spawn
+location** instead.
+
+Slow falling is not hardcoded: add `SLOW_FALLING` under `effects:` if you want it. Effects are applied
+after the teleport and survive it.
+
+```yaml
+totems:
+  voidwalker:
+    cooldown: 600
+    conditions:
+      causes: [VOID]
+      environments: [THE_END]
+    rescue:
+      return-to-safe-ground: true
+    effects:
+      - type: SLOW_FALLING
+        seconds: 20
+        level: 1
+```
 
 ### About `stack-size`
 

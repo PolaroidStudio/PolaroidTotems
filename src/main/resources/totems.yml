@@ -154,6 +154,58 @@
 #                                 So one shared skill can branch per totem instead of you writing
 #                                 a near-identical skill for every type.
 #
+#  conditions:                    WHICH deaths this type may prevent. Omit the whole section (or
+#    causes: [VOID]               leave a list empty) and the type fires for any death, anywhere —
+#    environments: [THE_END]      exactly what every totem did before this key existed.
+#
+#                                 causes:       Damage causes of the killing hit: VOID, FALL, LAVA,
+#                                               FIRE, DROWNING, ENTITY_ATTACK, PROJECTILE, … (the
+#                                               Bukkit DamageCause names). Case does not matter.
+#                                 environments: World types the player must be dying in: NORMAL,
+#                                               NETHER, THE_END, CUSTOM. Case does not matter.
+#
+#                                 Both lists must match when both are given. An unknown name is
+#                                 skipped with a warning; the rest of the list still applies. If
+#                                 EVERY name in a list is a typo, that filter is off — the warning
+#                                 tells you so, because "off" means the type fires for anything.
+#
+#                                 A type whose conditions do not match is treated as NOT USABLE,
+#                                 like one on cooldown: the plugin keeps looking through the
+#                                 inventory. Unlike a cooldown, it is never mentioned to the player
+#                                 — no amount of waiting would have made it fire for this death.
+#
+#                                 Held in a hand, a non-matching type still saves the player: that
+#                                 is vanilla doing it, and the plugin cannot stop vanilla without
+#                                 killing them. It is simply spent as a plain totem — none of this
+#                                 type's effects, skills, rescue or cooldown apply.
+#
+#                                 VOID IS SPECIAL. Vanilla never lets any totem stop a void death;
+#                                 the game does not even look for one. The plugin catches that hit
+#                                 itself, and ONLY for types that list VOID here. A type with no
+#                                 conditions never fires in the void, so adding this key to one
+#                                 totem changes nothing about the others. Pair VOID with the
+#                                 rescue below, or the player is saved while still falling.
+#                                 Otherwise a void save looks like any other: vanilla's usual
+#                                 Regeneration, Absorption and Fire Resistance, the animation, and
+#                                 a totem found outside a hand still needs activation.from-inventory
+#                                 in config.yml.
+#
+#  rescue:                        What happens to the player right after this type saves them.
+#    return-to-safe-ground: false
+#                                 true teleports the saved player, one tick later, back to the
+#                                 last block they were standing on (not flying, not gliding, not
+#                                 in water or lava). They land centred on that block, facing the
+#                                 way they already were, with their fall speed wiped.
+#
+#                                 If no such spot is known — they joined and fell before taking a
+#                                 step — or it is in ANOTHER world (they entered the End and fell
+#                                 before touching ground there), they go to the spawn of the world
+#                                 they are in instead.
+#
+#                                 Slow falling is NOT added for you. If you want it, list
+#                                 SLOW_FALLING under effects: like any other effect; effects are
+#                                 applied after the teleport and survive it.
+#
 # ---------------------------------------------------------------------------------------------
 
 totems:
@@ -343,6 +395,45 @@ totems:
   #     - type: REGENERATION
   #       seconds: 15
   #       level: 2
+
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 5 — a totem for one specific death
+  # -------------------------------------------------------------------------------------------
+  #  Only fires when a player falls into the void of THE END, and then puts them back on the last
+  #  block they stood on, drifting down under slow falling. Everywhere else it is dead weight in
+  #  the inventory — the plugin skips it and uses the player's other totems as usual.
+  #
+  #  Vanilla totems never save anyone from the void. This one can only because it NAMES VOID in
+  #  its conditions; see `conditions:` at the top of this file.
+  # -------------------------------------------------------------------------------------------
+  voidwalker:
+    item: vanilla
+    stack-size: 4
+    # Ten minutes. A void rescue is a very strong save, and without a limit a stack of these makes
+    # End islands risk-free.
+    cooldown: 600
+    display-name: '<#7b6cf6>ᴠᴏɪᴅᴡᴀʟᴋᴇʀ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Catches you when you fall'
+      - '<#E9FDFB>into the void of the End.'
+      - ''
+      - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+    conditions:
+      causes: [VOID]
+      environments: [THE_END]
+    rescue:
+      return-to-safe-ground: true
+    consume: true
+    heal-to-full: false
+    effects:
+      # The whole point: the teleport puts them back on solid ground, and this makes sure a
+      # spot on the very edge of an island does not become a second fall.
+      - type: SLOW_FALLING
+        seconds: 20
+        level: 1
+      - type: RESISTANCE
+        seconds: 10
+        level: 2
 
 # ---------------------------------------------------------------------------------------------
 #  A note on `item:` and inventory-wide search

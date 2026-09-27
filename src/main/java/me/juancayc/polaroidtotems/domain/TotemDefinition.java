@@ -35,6 +35,13 @@ import java.util.List;
  * @param consume        whether the totem is removed from the inventory when it saves the player
  * @param healToFull     whether the player is healed to their max health instead of vanilla's 1 HP
  * @param permission     permission required for this type to fire, or null for "anyone"
+ * @param conditions     which lethal hits, in which kinds of world, this type may prevent.
+ *                       {@link TotemConditions#ANY} (the default) means every death, everywhere.
+ *                       A type whose conditions do not match is skipped by the search exactly like
+ *                       one on cooldown, but without the cooldown message
+ * @param returnToSafeGround whether saving the player also teleports them, one tick later, back to
+ *                       the last block they were standing on (the {@code rescue:} section). Built
+ *                       for deaths the resurrection alone does not escape, such as the void
  */
 public record TotemDefinition(String id,
                               @Nullable String displayName,
@@ -48,7 +55,9 @@ public record TotemDefinition(String id,
                               List<MythicSkillSpec> skills,
                               boolean consume,
                               boolean healToFull,
-                              @Nullable String permission) {
+                              @Nullable String permission,
+                              TotemConditions conditions,
+                              boolean returnToSafeGround) {
 
     /**
      * The reserved id for a plain Totem of Undying.
@@ -88,6 +97,31 @@ public record TotemDefinition(String id,
         lore = lore == null ? List.of() : List.copyOf(lore);
         effects = effects == null ? List.of() : List.copyOf(effects);
         skills = skills == null ? List.of() : List.copyOf(skills);
+        conditions = conditions == null ? TotemConditions.ANY : conditions;
+    }
+
+    /**
+     * The shape every totem had before {@code conditions:} and {@code rescue:} existed: fires for
+     * any death, anywhere, and teleports nobody.
+     *
+     * <p>Kept so the many call sites that do not care about either key (the synthesized vanilla
+     * entry, most tests) stay readable instead of growing two trailing "nothing" arguments each.
+     */
+    public TotemDefinition(String id,
+                           @Nullable String displayName,
+                           List<String> lore,
+                           String item,
+                           int stackSize,
+                           long cooldownSeconds,
+                           @Nullable String itemModel,
+                           @Nullable Integer customModelData,
+                           List<TotemEffectSpec> effects,
+                           List<MythicSkillSpec> skills,
+                           boolean consume,
+                           boolean healToFull,
+                           @Nullable String permission) {
+        this(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel, customModelData,
+                effects, skills, consume, healToFull, permission, TotemConditions.ANY, false);
     }
 
     /** True for the reserved entry describing the plain Totem of Undying. */
