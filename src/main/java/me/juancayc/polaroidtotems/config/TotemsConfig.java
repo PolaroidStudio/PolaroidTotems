@@ -4,6 +4,7 @@ import me.juancayc.polaroidtotems.domain.MythicSkillSpec;
 import me.juancayc.polaroidtotems.domain.TotemConditions;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.domain.TotemEffectSpec;
+import me.juancayc.polaroidtotems.domain.TotemMode;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -137,10 +138,55 @@ public final class TotemsConfig {
 
         boolean returnToSafeGround = section.getBoolean("rescue.return-to-safe-ground", false);
 
+        TotemMode mode = TotemMode.parse(section.getString("mode"), id, onWarning);
+        boolean keepExperience = section.getBoolean("keep-experience", false);
+
+        if (mode == TotemMode.KEEP_INVENTORY) {
+            // A keep-inventory type never resurrects anybody, so every key that only describes a
+            // resurrection is meaningless on it. Each one is dropped with its own warning rather than
+            // failing the type: the owner almost certainly copied a resurrect entry and changed its
+            // mode, and the rest of that entry (item, stack size, cooldown, conditions, look) is still
+            // exactly what they want. Emptying the values HERE means no death path ever has to ask
+            // "but which mode is this?" before reading them.
+            //
+            // Only values that would actually DO something are reported: `heal-to-full: false` or an
+            // empty `effects:` list is already a no-op and not worth a line in the console.
+            if (!consume) {
+                onWarning.accept("Totem '" + id + "' is a keep-inventory totem but sets 'consume: false'; "
+                        + "a keep-inventory totem always consumes one unit per death, so it is ignored.");
+                consume = true;
+            }
+            if (healToFull) {
+                onWarning.accept(ignoredOnKeeper(id, "heal-to-full"));
+                healToFull = false;
+            }
+            if (!effects.isEmpty()) {
+                onWarning.accept(ignoredOnKeeper(id, "effects"));
+                effects = List.of();
+            }
+            if (!skills.isEmpty()) {
+                onWarning.accept(ignoredOnKeeper(id, "skills"));
+                skills = List.of();
+            }
+            if (returnToSafeGround) {
+                onWarning.accept(ignoredOnKeeper(id, "rescue.return-to-safe-ground"));
+                returnToSafeGround = false;
+            }
+        } else if (keepExperience) {
+            // The mirror image: a resurrected player never dies, so there is no experience to keep.
+            onWarning.accept("Totem '" + id + "' sets 'keep-experience' but is not a keep-inventory "
+                    + "totem (mode: keep-inventory); a resurrection never loses experience, so it is ignored.");
+            keepExperience = false;
+        }
+
         // Not an error, but almost certainly a mistake worth one line: a VOID totem that does not
         // move the player saves them at 1 HP while they are still falling through the void, so the
         // very next void hit kills them anyway. The totem is spent for half a second of life.
-        if (conditions.listsCause(org.bukkit.event.entity.EntityDamageEvent.DamageCause.VOID)
+        //
+        // A keep-inventory type is exempt: on a void death it lets the player die ANYWAY and keeps
+        // their items, which is a perfectly sensible thing to restrict to the void.
+        if (mode == TotemMode.RESURRECT
+                && conditions.listsCause(org.bukkit.event.entity.EntityDamageEvent.DamageCause.VOID)
                 && !returnToSafeGround) {
             onWarning.accept("Totem '" + id + "' fires on VOID damage but has no "
                     + "'rescue.return-to-safe-ground: true'; the player will be saved while still "
@@ -149,6 +195,12 @@ public final class TotemsConfig {
 
         return new TotemDefinition(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel,
                 customModelData, effects, skills, consume, healToFull, permission, conditions,
-                returnToSafeGround);
+                returnToSafeGround, mode, keepExperience);
+    }
+
+    /** The one warning shape for a resurrection-only key found on a keep-inventory type. */
+    private static String ignoredOnKeeper(String id, String key) {
+        return "Totem '" + id + "' is a keep-inventory totem; '" + key + "' only applies to a "
+                + "resurrection, so it is ignored.";
     }
 }

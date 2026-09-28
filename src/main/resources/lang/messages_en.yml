@@ -26,6 +26,9 @@ general:
 totem:
   # Shown to the player the totem just saved. %totem% is the type id.
   saved: '<#95d027>A <#f2c42f>%totem%<#95d027> totem pulled you back.'
+  # Shown to a player who died but kept their inventory thanks to a keep-inventory totem. %totem%
+  # is the type id. Sent while they are on the death screen, so it is waiting in chat on respawn.
+  inventory_kept: '<#95d027>Your <#f2c42f>%totem%<#95d027> totem kept your inventory safe.'
   # Sent ONCE, and only when the player actually died because every totem they carried was still
   # on cooldown. A player saved by another totem hears nothing about the ones that were waiting.
   #

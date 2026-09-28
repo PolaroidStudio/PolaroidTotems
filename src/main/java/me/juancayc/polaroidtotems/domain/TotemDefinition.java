@@ -42,6 +42,15 @@ import java.util.List;
  * @param returnToSafeGround whether saving the player also teleports them, one tick later, back to
  *                       the last block they were standing on (the {@code rescue:} section). Built
  *                       for deaths the resurrection alone does not escape, such as the void
+ * @param mode           what this type does: cancel the death ({@link TotemMode#RESURRECT}, the
+ *                       default) or let it happen while keeping the inventory ({@link
+ *                       TotemMode#KEEP_INVENTORY}). A keep-inventory type is invisible to every
+ *                       resurrection path, and the resurrection-only keys above ({@code effects},
+ *                       {@code skills}, {@code heal-to-full}, {@code rescue}) are already emptied by
+ *                       the parser for it, so nothing downstream has to re-check the mode
+ * @param keepExperience whether a keep-inventory death also keeps the player's experience. Always
+ *                       false for a resurrect type, where no death happens and there is no
+ *                       experience to lose
  */
 public record TotemDefinition(String id,
                               @Nullable String displayName,
@@ -57,7 +66,9 @@ public record TotemDefinition(String id,
                               boolean healToFull,
                               @Nullable String permission,
                               TotemConditions conditions,
-                              boolean returnToSafeGround) {
+                              boolean returnToSafeGround,
+                              TotemMode mode,
+                              boolean keepExperience) {
 
     /**
      * The reserved id for a plain Totem of Undying.
@@ -98,6 +109,34 @@ public record TotemDefinition(String id,
         effects = effects == null ? List.of() : List.copyOf(effects);
         skills = skills == null ? List.of() : List.copyOf(skills);
         conditions = conditions == null ? TotemConditions.ANY : conditions;
+        mode = mode == null ? TotemMode.RESURRECT : mode;
+    }
+
+    /**
+     * The shape every totem had before {@code mode:} existed: a resurrect totem, which by definition
+     * has no experience to keep.
+     *
+     * <p>Kept for the same reason as the shorter constructor below: most call sites (tests, the
+     * synthesized vanilla entry) describe an ordinary resurrect totem and should read like one.
+     */
+    public TotemDefinition(String id,
+                           @Nullable String displayName,
+                           List<String> lore,
+                           String item,
+                           int stackSize,
+                           long cooldownSeconds,
+                           @Nullable String itemModel,
+                           @Nullable Integer customModelData,
+                           List<TotemEffectSpec> effects,
+                           List<MythicSkillSpec> skills,
+                           boolean consume,
+                           boolean healToFull,
+                           @Nullable String permission,
+                           TotemConditions conditions,
+                           boolean returnToSafeGround) {
+        this(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel, customModelData,
+                effects, skills, consume, healToFull, permission, conditions, returnToSafeGround,
+                TotemMode.RESURRECT, false);
     }
 
     /**
@@ -122,6 +161,16 @@ public record TotemDefinition(String id,
                            @Nullable String permission) {
         this(id, displayName, lore, item, stackSize, cooldownSeconds, itemModel, customModelData,
                 effects, skills, consume, healToFull, permission, TotemConditions.ANY, false);
+    }
+
+    /** True when this type cancels a death. Every resurrection path searches for these only. */
+    public boolean resurrects() {
+        return mode == TotemMode.RESURRECT;
+    }
+
+    /** True when this type lets the player die but keeps their inventory. */
+    public boolean keepsInventory() {
+        return mode == TotemMode.KEEP_INVENTORY;
     }
 
     /** True for the reserved entry describing the plain Totem of Undying. */

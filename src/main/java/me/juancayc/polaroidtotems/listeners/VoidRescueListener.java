@@ -8,7 +8,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
-import org.bukkit.inventory.PlayerInventory;
 
 /**
  * Lets a totem that names {@code VOID} in its {@code conditions.causes} save a player from the void.
@@ -37,9 +36,6 @@ import org.bukkit.inventory.PlayerInventory;
  * nothing to save), early enough that a MONITOR listener still sees the final outcome.
  */
 public final class VoidRescueListener implements Listener {
-
-    /** The off-hand slot in a {@code PlayerInventory}'s flat index space. */
-    private static final int OFF_HAND_SLOT = 40;
 
     private final ConfigManager config;
     private final TotemService totems;
@@ -73,7 +69,7 @@ public final class VoidRescueListener implements Listener {
         // A hand-held VOID totem is honoured unconditionally, like any hand-held totem in vanilla.
         // One found elsewhere is the inventory-wide feature, and answers to the same two gates the
         // ordinary inventory path does.
-        if (!isHand(player.getInventory(), result.totem().slot())) {
+        if (!TotemService.isHandSlot(player.getInventory(), result.totem().slot())) {
             if (!config.activateFromInventory()) return;
             String permission = config.activationPermission();
             if (permission != null && !player.hasPermission(permission)) return;
@@ -81,9 +77,5 @@ public final class VoidRescueListener implements Listener {
 
         event.setCancelled(true);
         totems.resurrectWithoutVanilla(player, result.totem(), event.getDamage());
-    }
-
-    private static boolean isHand(PlayerInventory inventory, int slot) {
-        return slot == inventory.getHeldItemSlot() || slot == OFF_HAND_SLOT;
     }
 }

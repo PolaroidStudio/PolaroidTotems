@@ -206,6 +206,45 @@
 #                                 SLOW_FALLING under effects: like any other effect; effects are
 #                                 applied after the teleport and survive it.
 #
+#  mode: resurrect                WHAT this type does for the player carrying it.
+#                                   resurrect       -> the classic totem, and the default: the
+#                                                      death is cancelled and the player lives.
+#                                   keep-inventory  -> the player DIES, but respawns with every
+#                                                      item they carried. Exactly one unit of this
+#                                                      totem is used up per death.
+#                                 An unknown value is logged and read as `resurrect`.
+#
+#                                 A keep-inventory totem NEVER resurrects anybody. The plugin skips
+#                                 it when looking for a totem to save a player, so it is never
+#                                 wasted on a death another totem could have prevented. Held in a
+#                                 hand, where vanilla would normally use it, it is taken back out of
+#                                 vanilla's hands: if any resurrect totem is usable the player is
+#                                 saved by THAT one (and keeps the keeper), otherwise they die and
+#                                 the keeper keeps their inventory.
+#
+#                                 Everything else still applies to it: item, stack-size, cooldown
+#                                 (and its bypass permissions), permission, conditions, the world
+#                                 blacklist, activation.from-inventory, and the look keys.
+#                                 conditions.causes is read from the hit that killed the player, so
+#                                 `causes: [VOID]` makes a keeper that only works in the void.
+#
+#                                 Keys that only describe a resurrection are IGNORED on it, with a
+#                                 warning: heal-to-full, effects, skills and rescue. `consume:
+#                                 false` is refused too — a keeper is always used up.
+#
+#                                 It does not have to be a Totem of Undying. Unlike resurrect
+#                                 totems, keep-inventory totems are found in ANY slot whatever
+#                                 their material, so a Nexo item built on PAPER works everywhere.
+#
+#                                 Does nothing when the player would keep their inventory anyway —
+#                                 the keepInventory gamerule, or another plugin deciding so first.
+#                                 The totem is not spent in that case.
+#
+#  keep-experience: false         keep-inventory totems only. true also keeps the player's levels
+#                                 and drops no experience orbs. false (the default) lets experience
+#                                 drop exactly as in vanilla. Ignored, with a warning, on a
+#                                 resurrect totem — a player who never died loses no experience.
+#
 # ---------------------------------------------------------------------------------------------
 
 totems:
@@ -435,6 +474,32 @@ totems:
         seconds: 10
         level: 2
 
+  # -------------------------------------------------------------------------------------------
+  #  EXAMPLE 6 — a totem that lets you die, but keeps your things
+  # -------------------------------------------------------------------------------------------
+  #  Not a save at all: the player dies, the death screen shows, and they respawn with every item
+  #  they were carrying. One keeper is used up for it. Experience still drops as usual.
+  #
+  #  Resurrect totems always come first. A player carrying a `guardian` AND a `keeper` is saved by
+  #  the guardian and never touches the keeper; the keeper only matters when nothing could save
+  #  them. See `mode:` at the top of this file.
+  # -------------------------------------------------------------------------------------------
+  keeper:
+    item: vanilla
+    mode: keep-inventory
+    # Leave experience to drop as normal. Set true to keep levels too.
+    keep-experience: false
+    stack-size: 4
+    # Thirty minutes. Without a limit a stack of these is permanent keep-inventory for whoever can
+    # afford them; with one, it is insurance for a bad half-hour.
+    cooldown: 1800
+    display-name: '<#289bd0>ᴋᴇᴇᴘᴇʀ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>It will not save your life,'
+      - '<#E9FDFB>but it will save your things.'
+      - ''
+      - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
+
 # ---------------------------------------------------------------------------------------------
 #  A note on `item:` and inventory-wide search
 # ---------------------------------------------------------------------------------------------
@@ -448,4 +513,8 @@ totems:
 #  inventory-wide search. If you want a custom-textured totem that works from anywhere, back it
 #  with the totem material and use `custom-model-data:` — or build the Nexo item on top of
 #  TOTEM_OF_UNDYING.
+#
+#  keep-inventory totems are the exception. They are looked for when a player has already died,
+#  which is rare enough to afford reading every slot, so they are found in any slot whatever
+#  their material.
 # ---------------------------------------------------------------------------------------------

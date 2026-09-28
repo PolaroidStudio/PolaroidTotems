@@ -5,6 +5,7 @@ import me.juancayc.polaroidtotems.config.TotemsConfig;
 import me.juancayc.polaroidtotems.domain.MythicSkillSpec;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.domain.TotemEffectSpec;
+import me.juancayc.polaroidtotems.domain.TotemMode;
 import me.juancayc.polaroidtotems.item.TotemStamper;
 import me.juancayc.polaroidtotems.messaging.MessageService;
 import me.juancayc.polaroidtotems.skill.MythicSkillHook;
@@ -144,6 +145,57 @@ public final class TotemService {
      */
     public SearchResult searchUsableTotem(Player player, long now, @Nullable DamageCause cause,
                                           boolean causeMustBeListed) {
+        // Resurrect types only: a keep-inventory totem never cancels a death, so it is invisible
+        // here — skipped exactly like a stack of dirt, before permission, conditions or cooldown are
+        // even asked. It stays in the inventory for the death listener to find.
+        //
+        // Storage is always walked: the inventory-wide gates (`activation.from-inventory`, the
+        // activation permission) are applied by the resurrect listener AFTER the search, because the
+        // hand-held branch must be able to look past them. Armour only when the owner opted in.
+        return search(player, new Search(player, now, cause, causeMustBeListed,
+                player.getWorld().getEnvironment(), TotemMode.RESURRECT), true, config.activateFromArmor());
+    }
+
+    /**
+     * Finds the keep-inventory totem that should be spent on this death, if any.
+     *
+     * <p>The same rules as a resurrection, applied to the other mode: the world blacklist (global
+     * and per type), the type's permission, its {@code conditions:} and its cooldown. The
+     * inventory-wide gates are applied HERE rather than by the caller, with exactly the resurrect
+     * path's semantics — a keeper in either hand always counts, one in storage needs {@code
+     * activation.from-inventory} plus the activation permission, one in armour additionally needs
+     * {@code activation.include-armor-slots}. The death listener has no hand-held branch that must
+     * look past them, so filtering while walking is simpler than filtering afterwards.
+     *
+     * <h2>Why every stack, not just totems</h2>
+     *
+     * <p>The resurrection search early-exits on {@code TOTEM_OF_UNDYING} because it runs on every
+     * lethal hit and vanilla only ever resurrects with that material anyway. A death is rarer than a
+     * lethal hit, and a keep-inventory totem has no reason to be a Totem of Undying at all — a Nexo
+     * item on {@code PAPER} makes a fine "soul contract". So this walk reads the type tag of every
+     * NON-EMPTY stack instead. {@code readType} checks {@code hasItemMeta()} before touching the PDC,
+     * so a plain stack of cobblestone costs one boolean. At most 41 of them, once per death.
+     *
+     * @param now   one clock reading for the whole search, as in {@link #searchUsableTotem}
+     * @param cause the cause of the lethal hit, or null when it could not be determined
+     */
+    public SearchResult searchKeepInventoryTotem(Player player, long now, @Nullable DamageCause cause) {
+        String permission = config.activationPermission();
+        boolean fromInventory = config.activateFromInventory()
+                && (permission == null || player.hasPermission(permission));
+
+        return search(player, new Search(player, now, cause, false,
+                        player.getWorld().getEnvironment(), TotemMode.KEEP_INVENTORY),
+                fromInventory, fromInventory && config.activateFromArmor());
+    }
+
+    /**
+     * The one inventory walk both modes share.
+     *
+     * @param includeStorage whether the 36 main slots are searched at all; the two hands always are
+     * @param includeArmor   whether the four armour slots are searched after storage
+     */
+    private SearchResult search(Player player, Search search, boolean includeStorage, boolean includeArmor) {
         // The GLOBAL world blacklist short-circuits the entire search rather than being re-asked per
         // slot. In a blacklisted world the answer is the same for every totem in every slot, so
         // walking 41 slots to reach it would be 41 hash lookups, a registry resolve and a PDC read
@@ -158,25 +210,24 @@ public final class TotemService {
         }
 
         PlayerInventory inventory = player.getInventory();
-        Search search = new Search(player, now, cause, causeMustBeListed,
-                player.getWorld().getEnvironment());
 
         FoundTotem hand = search.candidate(inventory.getHeldItemSlot(),
                 inventory.getItem(inventory.getHeldItemSlot()));
         if (hand != null) return search.using(hand);
 
-        // 40 is the off-hand slot index in a PlayerInventory.
-        FoundTotem offHand = search.candidate(40, inventory.getItemInOffHand());
+        FoundTotem offHand = search.candidate(OFF_HAND_SLOT, inventory.getItemInOffHand());
         if (offHand != null) return search.using(offHand);
 
-        // Storage = the 36 main slots (hotbar + the three rows), excluding armour and off hand.
-        ItemStack[] storage = inventory.getStorageContents();
-        for (int slot = 0; slot < storage.length; slot++) {
-            FoundTotem found = search.candidate(slot, storage[slot]);
-            if (found != null) return search.using(found);
+        if (includeStorage) {
+            // Storage = the 36 main slots (hotbar + the three rows), excluding armour and off hand.
+            ItemStack[] storage = inventory.getStorageContents();
+            for (int slot = 0; slot < storage.length; slot++) {
+                FoundTotem found = search.candidate(slot, storage[slot]);
+                if (found != null) return search.using(found);
+            }
         }
 
-        if (config.activateFromArmor()) {
+        if (includeArmor) {
             ItemStack[] armor = inventory.getArmorContents();
             for (int index = 0; index < armor.length; index++) {
                 // Armour slots start at 36 in a PlayerInventory's flat index space.
@@ -204,13 +255,15 @@ public final class TotemService {
         private final @Nullable DamageCause cause;
         private final boolean causeMustBeListed;
         private final World.Environment environment;
+        private final TotemMode wanted;
 
         private @Nullable TotemDefinition nearestBlocked;
         private long nearestRemainingMillis = Long.MAX_VALUE;
 
         private Search(Player player, long now, @Nullable DamageCause cause, boolean causeMustBeListed,
-                       World.Environment environment) {
+                       World.Environment environment, TotemMode wanted) {
             this.player = player;
+            this.wanted = wanted;
             this.now = now;
             this.cause = cause;
             this.causeMustBeListed = causeMustBeListed;
@@ -225,11 +278,20 @@ public final class TotemService {
          * ember} and a ready {@code guardian} is saved by the guardian, not killed by the ember.
          */
         private @Nullable FoundTotem candidate(int slot, @Nullable ItemStack stack) {
-            if (!isTotemMaterial(stack)) return null;
+            if (stack == null || stack.getType().isAir()) return null;
+
+            // The resurrection search keeps its material early-exit: it runs on every lethal hit,
+            // and only a Totem of Undying can ever be resurrected with. The keep-inventory search
+            // reads tags on every non-empty stack — see searchKeepInventoryTotem for why.
+            boolean totemMaterial = isTotemMaterial(stack);
+            if (wanted == TotemMode.RESURRECT && !totemMaterial) return null;
 
             // An untagged totem is the reserved vanilla type by definition, so a server that never
-            // stamped anything still gets the configured vanilla behaviour.
-            TotemDefinition definition = totems.registry().resolveOrVanilla(stamper.readType(stack));
+            // stamped anything still gets the configured vanilla behaviour. A type of the OTHER mode
+            // resolves to null here and is skipped silently, like any item that is not a totem.
+            TotemDefinition definition =
+                    totems.registry().resolveFor(stamper.readType(stack), totemMaterial, wanted);
+            if (definition == null) return null;
 
             String permission = definition.permission();
             if (permission != null && !player.hasPermission(permission)) return null;
@@ -310,6 +372,58 @@ public final class TotemService {
      */
     public static boolean isTotemMaterial(@Nullable ItemStack stack) {
         return stack != null && stack.getType() == Material.TOTEM_OF_UNDYING;
+    }
+
+    /** The off-hand slot in a {@code PlayerInventory}'s flat index space. */
+    public static final int OFF_HAND_SLOT = 40;
+
+    /**
+     * Whether a flat inventory index is one of the player's two hands.
+     *
+     * <p>A totem in a hand is the vanilla case and is honoured without the inventory-wide gates; one
+     * anywhere else is this plugin's feature and answers to them.
+     */
+    public static boolean isHandSlot(PlayerInventory inventory, int slot) {
+        return slot == inventory.getHeldItemSlot() || slot == OFF_HAND_SLOT;
+    }
+
+    /**
+     * Which configured type a stack is, regardless of mode, or null when it is not a totem.
+     *
+     * <p>Used by the resurrect listener to ask what vanilla found in a hand. See {@link
+     * TotemRegistry#resolve} for the material rules.
+     */
+    public @Nullable TotemDefinition typeOf(@Nullable ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) return null;
+        return totems.registry().resolve(stamper.readType(stack), isTotemMaterial(stack));
+    }
+
+    /**
+     * Every consequence of a keep-inventory totem being spent on a death, other than the event
+     * mutations the listener owns: consuming exactly one unit, starting the cooldown, telling the
+     * player.
+     *
+     * <p>No animation and no sound, deliberately. The totem animation means "you did not die", which
+     * is the opposite of what just happened, and the plugin's one sound belongs to a resurrection
+     * (see {@link SoundService}). The chat line is the whole announcement.
+     *
+     * <p>Consumption is unconditional: {@code consume: false} is refused for this mode at parse time,
+     * because a keeper that is never spent would be permanent keep-inventory in one item.
+     */
+    public void applyKeepInventory(Player player, FoundTotem found) {
+        TotemDefinition definition = found.definition();
+
+        // The inventory is kept, so this unit has to be taken out of it explicitly — otherwise the
+        // player respawns holding the very totem that paid for the respawn. Nothing else removes it:
+        // the drops list the listener cleared was never the inventory itself.
+        consumeOne(player, found);
+
+        cooldowns.startCooldown(player, definition, System.currentTimeMillis());
+
+        if (config.announceToPlayer()) {
+            messages.sendPrefixed(player, "totem.inventory_kept",
+                    "%totem%", messages.escape(definition.id()));
+        }
     }
 
     /**
@@ -486,8 +600,9 @@ public final class TotemService {
     /**
      * Removes exactly one totem from the slot it was found in.
      *
-     * <p>Only ever called on the inventory-wide path. With {@code getHand() == null}, vanilla
-     * consumed nothing, so leaving this out would hand the player an infinite totem.
+     * <p>Called on the inventory-wide path, where with {@code getHand() == null} vanilla consumed
+     * nothing, and on the keep-inventory path, where no vanilla code consumes anything at all.
+     * Leaving it out on either would hand the player an infinite totem.
      */
     private void consumeOne(Player player, FoundTotem found) {
         Inventory inventory = player.getInventory();

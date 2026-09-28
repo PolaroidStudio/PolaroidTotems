@@ -143,6 +143,8 @@ you that one type and logs a warning; it never takes the plugin down with it.
 | `conditions.causes` | list of strings | empty (any cause) | Bukkit `DamageCause` names, case-insensitive: `VOID`, `FALL`, `LAVA`, … The type only fires when the killing hit has one of these causes. Unknown names are skipped with a warning |
 | `conditions.environments` | list of strings | empty (any world) | `NORMAL`, `NETHER`, `THE_END`, `CUSTOM`, case-insensitive. The type only fires in worlds of these kinds. Unknown names are skipped with a warning |
 | `rescue.return-to-safe-ground` | boolean | `false` | `true` teleports the saved player, one tick later, back to the last block they stood on. See [Conditions and rescue](#conditions-and-rescue) |
+| `mode` | string | `resurrect` | `resurrect` cancels the death; `keep-inventory` lets the player die but keeps their inventory, consuming one unit. Case-insensitive; an unknown value is logged and read as `resurrect`. See [Keep-inventory totems](#keep-inventory-totems) |
+| `keep-experience` | boolean | `false` | `keep-inventory` types only: `true` also keeps levels and drops no experience. Ignored with a warning on a `resurrect` type |
 
 ### `effects` sub-keys
 
@@ -189,9 +191,9 @@ totems:
         particles: true
 ```
 
-`totems.yml` ships with this type plus three more (`ember`, a fire-resistance escape totem; `eclipse`,
-a permission-gated rarity; `voidwalker`, an End-void rescue) and a commented Nexo-backed example, all
-documented line by line.
+`totems.yml` ships with this type plus four more (`ember`, a fire-resistance escape totem; `eclipse`,
+a permission-gated rarity; `voidwalker`, an End-void rescue; `keeper`, a keep-inventory totem) and a
+commented Nexo-backed example, all documented line by line.
 
 ### Conditions and rescue
 
@@ -237,6 +239,45 @@ totems:
         seconds: 20
         level: 1
 ```
+
+### Keep-inventory totems
+
+A type with `mode: keep-inventory` does not save the player's life. They die, see the death screen,
+and respawn with **every item they were carrying**; exactly one unit of that totem is used up.
+Experience drops as in vanilla unless the type sets `keep-experience: true`.
+
+```yaml
+totems:
+  keeper:
+    mode: keep-inventory
+    keep-experience: false
+    stack-size: 4
+    cooldown: 1800
+```
+
+- **Resurrect totems always come first.** A keeper is invisible to every resurrection path, so it is
+  never spent on a death another totem could prevent. It is only looked at once the player has
+  actually died.
+- **In a hand**, a keeper backed by a Totem of Undying is something vanilla would normally resurrect
+  with. The plugin takes it back: if any resurrect totem is usable (a hand one always, an inventory
+  one under the usual `activation.*` gates) the player is saved by **that** totem and keeps the
+  keeper; otherwise the resurrection is cancelled, the player dies, and the keeper does its job.
+- **Every other rule still applies**: `permission`, `cooldown` and its bypass permissions,
+  `conditions` (the cause is the killing hit's), the world blacklist, and `activation.from-inventory`,
+  `activation.require-permission` and `activation.include-armor-slots` exactly as for a resurrection.
+  A player blocked only by a cooldown gets the usual single cooldown line.
+- **Any material works.** Unlike resurrect totems, keepers are searched for in every non-empty slot by
+  their tag, not by the `TOTEM_OF_UNDYING` material, so a Nexo item built on `PAPER` is found anywhere.
+- **Resurrection-only keys are ignored with a warning**: `heal-to-full`, `effects`, `skills` and
+  `rescue`. `consume: false` is refused — a keeper is always used up.
+- **Nothing is spent when nothing would be lost.** With the `keepInventory` gamerule on, or another
+  plugin that already decided to keep the inventory, the keeper stays in the inventory.
+
+The death listener runs at `LOW` priority, before grave and death-chest plugins (typically `NORMAL` or
+later) read the drops, so they see an empty drops list and `keepInventory` already set — exactly what
+the gamerule looks like to them. It clears the drops itself; setting `keepInventory` alone would
+duplicate every item. A plugin that decides keep-inventory at `LOWEST` is respected; one that cancels
+the death or turns `keepInventory` back off at a *later* priority overrides a decision already made.
 
 ### About `stack-size`
 
@@ -421,7 +462,7 @@ in favour of this one. Both carry the same wire id, so the client sees an identi
 
 Stable and predictable: **main hand → off hand → the 36 storage slots in index order → armour**
 (only when `activation.include-armor-slots` is on). A player who wants a specific totem used first
-puts it in their hand, exactly as in vanilla.
+puts it in their hand, exactly as in vanilla. The keep-inventory search at death walks the same order.
 
 A type whose `permission:` the player lacks is skipped during the search, not refused afterwards —
 the player simply carries it as a souvenir and the search continues to the next candidate.

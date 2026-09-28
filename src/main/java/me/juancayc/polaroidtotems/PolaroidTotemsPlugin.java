@@ -8,6 +8,7 @@ import me.juancayc.polaroidtotems.item.TotemStamper;
 import me.juancayc.polaroidtotems.item.hooks.NexoItemHook;
 import me.juancayc.polaroidtotems.item.hooks.VanillaItemHook;
 import me.juancayc.polaroidtotems.listeners.CooldownListener;
+import me.juancayc.polaroidtotems.listeners.KeepInventoryListener;
 import me.juancayc.polaroidtotems.listeners.NormalizationListener;
 import me.juancayc.polaroidtotems.listeners.ResurrectListener;
 import me.juancayc.polaroidtotems.listeners.SafeGroundListener;
@@ -104,6 +105,8 @@ public final class PolaroidTotemsPlugin extends JavaPlugin {
                 new SafeGroundListener(safeGround), this);
         getServer().getPluginManager().registerEvents(
                 new VoidRescueListener(configManager, totemService), this);
+        getServer().getPluginManager().registerEvents(
+                new KeepInventoryListener(totemService), this);
 
         new CommandRegistrar(this, messageService, stamper).register();
 

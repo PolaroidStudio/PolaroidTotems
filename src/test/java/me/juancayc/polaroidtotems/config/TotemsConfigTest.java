@@ -2,6 +2,7 @@ package me.juancayc.polaroidtotems.config;
 
 import me.juancayc.polaroidtotems.domain.TotemConditions;
 import me.juancayc.polaroidtotems.domain.TotemDefinition;
+import me.juancayc.polaroidtotems.domain.TotemMode;
 import me.juancayc.polaroidtotems.totem.TotemRegistry;
 import org.bukkit.World;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -338,5 +340,149 @@ class TotemsConfigTest {
 
         assertSame(TotemConditions.ANY, voidwalker.conditions());
         assertEquals(1, warnings.size());
+    }
+
+    // ----- mode / keep-experience -----------------------------------------------------------------
+
+    @Test
+    @DisplayName("mode defaults to resurrect and keep-experience to false")
+    void modeDefaultsToResurrect() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  plain:
+                    stack-size: 2
+                """);
+
+        TotemDefinition plain = TotemsConfig.parse(cfg, warning -> {}).get("plain");
+
+        assertNotNull(plain);
+        assertEquals(TotemMode.RESURRECT, plain.mode());
+        assertTrue(plain.resurrects());
+        assertFalse(plain.keepExperience());
+        assertEquals(TotemMode.RESURRECT, TotemRegistry.empty().vanilla().mode(),
+                "the synthesized vanilla entry is an ordinary resurrect totem");
+    }
+
+    @Test
+    @DisplayName("a keep-inventory totem parses its mode and keep-experience without warnings")
+    void parsesKeepInventoryType() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  keeper:
+                    mode: keep-inventory
+                    keep-experience: true
+                    stack-size: 4
+                    cooldown: 1800
+                    permission: 'polaroidtotems.type.keeper'
+                    conditions:
+                      causes: [VOID]
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition keeper = TotemsConfig.parse(cfg, warnings::add).get("keeper");
+
+        assertNotNull(keeper);
+        assertEquals(TotemMode.KEEP_INVENTORY, keeper.mode());
+        assertTrue(keeper.keepsInventory());
+        assertFalse(keeper.resurrects());
+        assertTrue(keeper.keepExperience());
+        assertEquals(4, keeper.stackSize());
+        assertEquals(1800L, keeper.cooldownSeconds());
+        assertEquals("polaroidtotems.type.keeper", keeper.permission());
+        assertTrue(keeper.consume());
+        // A VOID keeper without a rescue is legitimate — it lets the player die anyway — so the
+        // "saved while still in the void" warning must not fire for it.
+        assertTrue(warnings.isEmpty(), "unexpected warnings: " + warnings);
+    }
+
+    @Test
+    @DisplayName("an unknown mode warns and falls back to resurrect without losing the type")
+    void unknownModeFallsBack() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  odd:
+                    mode: keep-everything
+                    stack-size: 3
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition odd = TotemsConfig.parse(cfg, warnings::add).get("odd");
+
+        assertNotNull(odd);
+        assertEquals(TotemMode.RESURRECT, odd.mode());
+        assertEquals(3, odd.stackSize());
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("keep-everything"));
+    }
+
+    @Test
+    @DisplayName("resurrection-only keys on a keep-inventory totem are dropped, one warning each")
+    void keeperIgnoresResurrectionKeys() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  keeper:
+                    mode: keep-inventory
+                    consume: false
+                    heal-to-full: true
+                    rescue:
+                      return-to-safe-ground: true
+                    skills:
+                      - skill: SomeSkill
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition keeper = TotemsConfig.parse(cfg, warnings::add).get("keeper");
+
+        assertNotNull(keeper);
+        assertEquals(TotemMode.KEEP_INVENTORY, keeper.mode());
+        assertTrue(keeper.consume(), "a keeper is always consumed");
+        assertFalse(keeper.healToFull());
+        assertFalse(keeper.returnToSafeGround());
+        assertTrue(keeper.skills().isEmpty());
+        assertEquals(4, warnings.size(), "one warning per ignored key: " + warnings);
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("consume")));
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("heal-to-full")));
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("rescue.return-to-safe-ground")));
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("skills")));
+    }
+
+    @Test
+    @DisplayName("keys that would do nothing anyway are not reported on a keep-inventory totem")
+    void keeperNoOpKeysAreSilent() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  keeper:
+                    mode: KEEP_INVENTORY
+                    consume: true
+                    heal-to-full: false
+                    effects: []
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition keeper = TotemsConfig.parse(cfg, warnings::add).get("keeper");
+
+        assertNotNull(keeper);
+        assertEquals(TotemMode.KEEP_INVENTORY, keeper.mode(), "the mode is read case-insensitively");
+        assertTrue(warnings.isEmpty(), "unexpected warnings: " + warnings);
+    }
+
+    @Test
+    @DisplayName("keep-experience on a resurrect totem warns and is ignored")
+    void keepExperienceOnResurrectWarns() throws Exception {
+        YamlConfiguration cfg = yaml("""
+                totems:
+                  guardian:
+                    keep-experience: true
+                    heal-to-full: true
+                """);
+
+        List<String> warnings = new ArrayList<>();
+        TotemDefinition guardian = TotemsConfig.parse(cfg, warnings::add).get("guardian");
+
+        assertNotNull(guardian);
+        assertFalse(guardian.keepExperience());
+        assertTrue(guardian.healToFull(), "the resurrect keys of a resurrect totem are untouched");
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("keep-experience"));
     }
 }

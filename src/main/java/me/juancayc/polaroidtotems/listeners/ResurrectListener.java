@@ -1,6 +1,7 @@
 package me.juancayc.polaroidtotems.listeners;
 
 import me.juancayc.polaroidtotems.config.ConfigManager;
+import me.juancayc.polaroidtotems.domain.TotemDefinition;
 import me.juancayc.polaroidtotems.totem.TotemService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -9,6 +10,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityResurrectEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,6 +38,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Priority is HIGH rather than MONITOR because the decision is a real one: a later listener may
  * still want to veto it, and a MONITOR handler must not change outcomes.
+ *
+ * <h2>Keep-inventory totems never resurrect</h2>
+ *
+ * <p>The search skips them, so on the pre-cancelled path they are simply invisible. The one place
+ * they leak in is a HAND: a keep-inventory type backed by a Totem of Undying still carries vanilla's
+ * {@code death_protection} component, so vanilla picks it up and starts resurrecting with it. See
+ * {@link #handleKeeperInHand} for how that is turned back into what the owner configured.
  */
 public final class ResurrectListener implements Listener {
 
@@ -67,6 +77,13 @@ public final class ResurrectListener implements Listener {
             // consume that totem and play the animation itself, so the plugin only adds this type's
             // custom effects on top. Nothing is un-cancelled here because nothing was cancelled.
             if (event.isCancelled()) return;
+
+            ItemStack handStack = player.getInventory().getItem(event.getHand());
+            TotemDefinition handType = totems.typeOf(handStack);
+            if (handType != null && handType.keepsInventory()) {
+                handleKeeperInHand(event, player, handStack, now, cause);
+                return;
+            }
 
             //
             // Conditions are handled exactly like cooldowns here, through the same search. If the
@@ -111,6 +128,71 @@ public final class ResurrectListener implements Listener {
     }
 
     /**
+     * Vanilla is resurrecting the player with a keep-inventory totem it found in a hand.
+     *
+     * <p>That must not happen as-is: a keeper never resurrects anybody, and it would also be spent
+     * on the wrong job. What happens instead is exactly what would have happened had the keeper been
+     * anywhere else in the inventory:
+     *
+     * <ol>
+     *   <li><strong>A usable RESURRECT totem exists</strong> (subject to the same gates as always: a
+     *       hand is honoured unconditionally, anywhere else needs {@code activation.from-inventory}
+     *       and the activation permission) — the player is resurrected by THAT totem. Holding a
+     *       keeper must never make a player die who would have been saved without it.</li>
+     *   <li><strong>None</strong> — the event is cancelled, the player dies, and {@link
+     *       KeepInventoryListener} spends the keeper on the death, as it was configured to.</li>
+     * </ol>
+     *
+     * <h2>Why the hand stack is written back in case 1</h2>
+     *
+     * <p>Paper consumes the hand totem AFTER this event returns, not before, and only if it stays
+     * un-cancelled (verified against Paper's 1.21.11 {@code LivingEntity} patch: the vanilla {@code
+     * itemInHand.shrink(1)} is moved below {@code callEvent} and runs on the {@code itemInHand}
+     * reference it captured before the event). Cancelling and un-cancelling would therefore still
+     * shrink the keeper. So the hand slot is replaced with a fresh copy of the same stack: vanilla then
+     * shrinks the orphaned original it is still holding, and the player keeps every keeper they had.
+     * This works whether {@code getItem} handed back a live mirror or a copy — {@code setItem} always
+     * installs a NEW server stack — so it does not depend on either implementation detail. The
+     * resurrect totem that actually saved them is then consumed manually, exactly as on the
+     * inventory-wide path.
+     *
+     * <p>Vanilla still applies the keeper's own {@code death_protection} effects (Regeneration II,
+     * Absorption II, Fire Resistance for a Totem of Undying) — identical to what the resurrect totem
+     * would have granted — and the resurrect type's custom effects are layered on one tick later.
+     */
+    private void handleKeeperInHand(EntityResurrectEvent event, Player player, ItemStack handStack,
+                                    long now, @Nullable DamageCause cause) {
+        PlayerInventory inventory = player.getInventory();
+        boolean inventoryAllowed = inventoryActivationAllowed(player);
+
+        TotemService.SearchResult result = totems.searchUsableTotem(player, now, cause);
+        TotemService.FoundTotem found = result.totem();
+
+        if (found != null && (inventoryAllowed || TotemService.isHandSlot(inventory, found.slot()))) {
+            inventory.setItem(event.getHand(), handStack.clone());
+            totems.applyResurrection(player, found, true);
+            return;
+        }
+
+        // No resurrection: the player dies, and the death listener takes it from here.
+        event.setCancelled(true);
+
+        // Same anti-spam rule as the pre-cancelled path, which is what this has just become: one
+        // cooldown line, only when a cooldown is really why no resurrect totem saved them, and only
+        // when the inventory-wide feature was open to this player in the first place.
+        if (inventoryAllowed) {
+            totems.notifyBlockedByCooldown(player, result);
+        }
+    }
+
+    /** The two inventory-wide gates, exactly as the pre-cancelled path applies them. */
+    private boolean inventoryActivationAllowed(Player player) {
+        if (!config.activateFromInventory()) return false;
+        String permission = config.activationPermission();
+        return permission == null || player.hasPermission(permission);
+    }
+
+    /**
      * The cause of the hit that is killing this player right now.
      *
      * <p>{@link EntityResurrectEvent} carries no damage source of its own — its whole API is {@code
@@ -129,7 +211,7 @@ public final class ResurrectListener implements Listener {
      * (another plugin driving the death directly); the value is then whatever hit came before. No
      * vanilla death takes that route.
      */
-    private static @Nullable DamageCause lethalCause(org.bukkit.entity.Player player) {
+    static @Nullable DamageCause lethalCause(org.bukkit.entity.Player player) {
         EntityDamageEvent last = player.getLastDamageCause();
         return last == null ? null : last.getCause();
     }
