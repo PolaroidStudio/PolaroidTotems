@@ -279,6 +279,37 @@ the gamerule looks like to them. It clears the drops itself; setting `keepInvent
 duplicate every item. A plugin that decides keep-inventory at `LOWEST` is respected; one that cancels
 the death or turns `keepInventory` back off at a *later* priority overrides a decision already made.
 
+### MythicMobs base totems and the bundled skill pack
+
+The default `totems.yml` ships thirteen totems that cast a MythicMobs skill when they save the player —
+on the lethal hit, exactly like a vanilla totem:
+
+| Totem | Skill | Fires on | What it does |
+|---|---|---|---|
+| `phoenix` | `PT_Phoenix` | any death | Ring of fire: ignites and damages enemies within 5 blocks |
+| `vampire` | `PT_Vampire` | melee | Drains up to 5 nearby enemies and heals the player |
+| `shockwave` | `PT_Shockwave` | melee, arrows | Throws every enemy within 6 blocks away |
+| `storm` | `PT_Storm` | any death | Lightning on up to 4 random enemies within 8 blocks |
+| `arcane` | `PT_ArcaneShield` | any death | Extra absorption shield |
+| `spirit` | `PT_GuardianSpirit` | any death | Summons a guardian golem for 30 s (no drops) |
+| `shadow` | `PT_Shadow` | melee, arrows | Leaps the player backwards and turns them invisible |
+| `glacial` | `PT_Glacial` | any death | Slowness IV and Weakness II on nearby enemies |
+| `bounce` | `PT_Bounce` | fall | Launches the player back up with Slow Falling |
+| `blessing` | `PT_Blessing` | any death | Heals and regenerates every player within 8 blocks |
+| `chaos` | `PT_Chaos` | any death | One of Phoenix, Storm, Blessing or Shockwave at random |
+| `umbra` | `PT_Umbra` | any death | Darkness on enemies, Night Vision for the player |
+| `dragon` | `PT_DragonBreath` | dragon breath in the End | Damages and weakens enemies within 5 blocks |
+
+Offensive skills target every living entity in range **except players and the caster**, so a totem
+never hurts the player it saved and never becomes a PvP weapon.
+
+The skills live in a MythicMobs **pack** the plugin installs by itself: on startup, if MythicMobs is
+installed and `plugins/MythicMobs/Packs/PolaroidTotems/` does not exist, it is copied there. This
+happens in `onLoad`, before MythicMobs reads its packs, so the skills work on the first start. An
+existing pack is **never overwritten** — edit it freely. Delete the folder to restore the original on
+the next restart, or set `mythicmobs.install-pack: false` in `config.yml` to stop the plugin from
+installing it. Without MythicMobs these totems still save the player; they just cast nothing.
+
 ### About `stack-size`
 
 `1`–`99` is the data component's own legal range, not a plugin limit. A value outside it is clamped

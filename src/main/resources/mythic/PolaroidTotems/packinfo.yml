@@ -1,0 +1,9 @@
+Name: PolaroidTotems
+Version: 1.0.0
+Author: juancayc
+Icon:
+  Material: TOTEM_OF_UNDYING
+Description:
+- Skills cast by the PolaroidTotems base totems.
+- Installed automatically by PolaroidTotems; edit freely,
+- it is never overwritten once it exists.

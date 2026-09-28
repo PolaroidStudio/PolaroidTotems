@@ -1,0 +1,22 @@
+# ---------------------------------------------------------------------------------------------
+#  PolaroidTotems — mobs used by the base totem skills
+# ---------------------------------------------------------------------------------------------
+#  Only one: the golem summoned by PT_GuardianSpirit. It is a Mythic mob rather than a plain
+#  IRON_GOLEM on purpose — a vanilla golem would stay forever and drop iron, turning the totem into
+#  an iron farm. This one removes itself after 30 seconds and drops nothing.
+# ---------------------------------------------------------------------------------------------
+
+PT_GuardianGolem:
+  Type: IRON_GOLEM
+  Display: '<#95d027>Guardian Spirit'
+  Health: 60
+  Damage: 10
+  Options:
+    AlwaysShowName: true
+    Despawn: true
+    PreventOtherDrops: true
+    PreventRandomEquipment: true
+  Skills:
+  - particle{p=totem_of_undying;a=40;hS=0.6;vS=1;s=0.3} @self ~onSpawn
+  - particle{p=cloud;a=30;hS=0.6;vS=1;s=0.05;delay=600} @self ~onSpawn
+  - remove{delay=600} @self ~onSpawn

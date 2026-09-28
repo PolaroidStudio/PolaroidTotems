@@ -1,0 +1,124 @@
+# ---------------------------------------------------------------------------------------------
+#  PolaroidTotems — base totem skills
+# ---------------------------------------------------------------------------------------------
+#  Cast by the matching totem types in plugins/PolaroidTotems/totems.yml, on the tick a totem
+#  saves the player — exactly when a vanilla totem fires. Nothing here is used by right-clicking.
+#
+#  How PolaroidTotems casts them:
+#    - the saved player is the CASTER and the TRIGGER, the origin is where they would have died;
+#    - every line below names its own @targeter, so `target-self` in totems.yml does not matter
+#      for these skills. It is left `false` there so the targeters here stay in charge;
+#    - <caster.var.totem_type> and <caster.var.totem_power> are available if you want one skill to
+#      behave differently per totem.
+#
+#  Offensive lines target `@EIR{...;targetplayers=false;targetself=false}`: every living entity in
+#  range EXCEPT players and the caster, so a totem never hurts the player it saved and never turns
+#  into a PvP weapon. Set targetplayers=true if your server wants that.
+#
+#  This file is installed once and never overwritten. Edit it freely; delete the whole
+#  plugins/MythicMobs/Packs/PolaroidTotems folder to get the original back on the next restart.
+# ---------------------------------------------------------------------------------------------
+
+# Phoenix — a ring of fire that burns everything around the player.
+PT_Phoenix:
+  Skills:
+  - sound{s=entity.blaze.shoot;v=1.5;p=0.7} @self
+  - particlering{p=flame;radius=5;points=48;a=2;hS=0.2;vS=0.4} @self
+  - particle{p=flame;a=80;hS=1;vS=1.2;s=0.15} @self
+  - ignite{ticks=100} @EIR{r=5;targetplayers=false;targetself=false}
+  - damage{amount=4} @EIR{r=5;targetplayers=false;targetself=false}
+
+# Vampire — drains nearby enemies and heals the player.
+PT_Vampire:
+  Skills:
+  - sound{s=entity.phantom.bite;v=1.2;p=0.6} @self
+  - damage{amount=4} @EIR{r=5;limit=5;targetplayers=false;targetself=false}
+  - particle{p=crimson_spore;a=25;hS=0.4;vS=0.8} @EIR{r=5;limit=5;targetplayers=false;targetself=false}
+  - heal{amount=8} @self
+  - particle{p=heart;a=8;hS=0.6;vS=0.6} @self
+
+# Shockwave — throws every enemy away from the player.
+PT_Shockwave:
+  Skills:
+  - sound{s=entity.generic.explode;v=1.5;p=1.2} @self
+  - particle{p=explosion;a=6;hS=2;vS=0.5} @self
+  - particlering{p=cloud;radius=6;points=40;a=1;s=0.05} @self
+  - throw{velocity=12;velocityY=4} @EIR{r=6;targetplayers=false;targetself=false}
+
+# Storm — lightning on up to four random enemies nearby.
+PT_Storm:
+  Skills:
+  - sound{s=entity.lightning_bolt.thunder;v=2;p=1} @self
+  - effect:lightning @EIR{r=8;limit=4;sort=RANDOM;targetplayers=false;targetself=false}
+  - damage{amount=6} @EIR{r=8;limit=4;sort=RANDOM;targetplayers=false;targetself=false}
+  - particle{p=electric_spark;a=60;hS=1;vS=1.5;s=0.2} @self
+
+# Arcane Shield — an absorption shield on top of vanilla's own.
+PT_ArcaneShield:
+  Skills:
+  - sound{s=block.beacon.activate;v=1.2;p=1.4} @self
+  - shield{amount=8;maxShield=8} @self
+  - particlering{p=enchant;radius=1.5;points=32;a=3;vS=1} @self
+  - particle{p=end_rod;a=30;hS=0.8;vS=1.2;s=0.05} @self
+
+# Guardian Spirit — summons a temporary iron golem (see Mobs/polaroidtotems.yml).
+PT_GuardianSpirit:
+  Skills:
+  - sound{s=entity.iron_golem.repair;v=1.5;p=0.8} @self
+  - summon{type=PT_GuardianGolem;amount=1;radius=2} @self
+  - particle{p=totem_of_undying;a=60;hS=1;vS=1.5;s=0.4} @self
+
+# Shadow — leaps the player backwards, out of the fight, and hides them.
+PT_Shadow:
+  Skills:
+  - sound{s=entity.enderman.teleport;v=1.2;p=0.8} @self
+  - particle{p=large_smoke;a=50;hS=0.8;vS=1;s=0.05} @self
+  - velocity{m=set;x=0;y=0.6;z=-1.4;relative=true} @self
+  - potion{type=INVISIBILITY;duration=200;level=0;hasParticles=false} @self
+
+# Glacial — freezes enemies in place.
+PT_Glacial:
+  Skills:
+  - sound{s=block.glass.break;v=1.5;p=0.6} @self
+  - particlering{p=snowflake;radius=6;points=48;a=2;vS=0.5} @self
+  - potion{type=SLOWNESS;duration=100;level=3} @EIR{r=6;targetplayers=false;targetself=false}
+  - potion{type=WEAKNESS;duration=100;level=1} @EIR{r=6;targetplayers=false;targetself=false}
+  - particle{p=snowflake;a=20;hS=0.4;vS=0.8} @EIR{r=6;targetplayers=false;targetself=false}
+
+# Bounce — for a fatal fall: launches the player back up. The totem adds Slow Falling itself.
+PT_Bounce:
+  Skills:
+  - sound{s=entity.slime.jump;v=1.5;p=0.8} @self
+  - particle{p=cloud;a=40;hS=1;vS=0.2;s=0.1} @self
+  - velocity{m=set;x=0;y=1.2;z=0} @self
+
+# Blessing — heals and regenerates every player nearby, the saved one included.
+PT_Blessing:
+  Skills:
+  - sound{s=entity.player.levelup;v=1.5;p=1.2} @self
+  - heal{amount=10} @PIR{r=8}
+  - potion{type=REGENERATION;duration=100;level=1} @PIR{r=8}
+  - particle{p=happy_villager;a=20;hS=0.5;vS=1} @PIR{r=8}
+
+# Chaos — one of four other skills in this file, picked at random.
+PT_Chaos:
+  Skills:
+  - sound{s=entity.evoker.prepare_wololo;v=1.5;p=1} @self
+  - particle{p=witch;a=60;hS=1;vS=1.5;s=0.1} @self
+  - randomskill{skills=PT_Phoenix,PT_Storm,PT_Blessing,PT_Shockwave} @self
+
+# Umbra — blinds enemies with Darkness while the player sees in the dark.
+PT_Umbra:
+  Skills:
+  - sound{s=entity.warden.sonic_charge;v=1.5;p=1} @self
+  - particle{p=sculk_soul;a=40;hS=1.5;vS=1;s=0.05} @self
+  - potion{type=DARKNESS;duration=120;level=0} @EIR{r=8;targetplayers=false;targetself=false}
+  - potion{type=NIGHT_VISION;duration=400;level=0;hasParticles=false} @self
+
+# Dragon — breathes back at the enemies around the player.
+PT_DragonBreath:
+  Skills:
+  - sound{s=entity.ender_dragon.growl;v=1.5;p=1.2} @self
+  - particlering{p=dragon_breath;radius=4;points=48;a=3;vS=0.6;s=0.02} @self
+  - damage{amount=6} @EIR{r=5;targetplayers=false;targetself=false}
+  - potion{type=WEAKNESS;duration=100;level=0} @EIR{r=5;targetplayers=false;targetself=false}

@@ -500,6 +500,290 @@ totems:
       - ''
       - '<#95d027>▸ ᴋᴇᴇᴘ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴏɴ ʏᴏᴜ'
 
+  # ===========================================================================================
+  #  MYTHICMOBS BASE TOTEMS
+  # ===========================================================================================
+  #  Every totem below casts one skill from the PolaroidTotems MythicMobs pack, which this plugin
+  #  installs by itself into plugins/MythicMobs/Packs/PolaroidTotems/ on startup (see
+  #  `mythicmobs.install-pack` in config.yml). They fire exactly like a vanilla totem: on the hit
+  #  that would have killed you, never on a right-click.
+  #
+  #  Without MythicMobs they still save you like a plain totem — the skill is simply not cast.
+  #
+  #  `target-self: false` on all of them: each skill line picks its own @targeter, so the skill
+  #  decides who it hits (enemies around you, nearby players, or you).
+  # ===========================================================================================
+
+  # A ring of fire burns everything around you.
+  phoenix:
+    item: vanilla
+    stack-size: 1
+    cooldown: 600
+    display-name: '<#f3842c>ᴘʜᴏᴇɴɪx ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>You rise in flames, and'
+      - '<#E9FDFB>everything near you burns.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Phoenix
+        power: 1.0
+        target-self: false
+
+  # Drains the enemies that were hitting you. Melee deaths only.
+  vampire:
+    item: vanilla
+    stack-size: 1
+    cooldown: 600
+    display-name: '<#c4213b>ᴠᴀᴍᴘɪʀᴇ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Feeds on whoever was'
+      - '<#E9FDFB>about to kill you.'
+      - ''
+      - '<#b6c1ec>Melee deaths only · MythicMobs'
+    conditions:
+      causes: [ENTITY_ATTACK, ENTITY_SWEEP_ATTACK]
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Vampire
+        power: 1.0
+        target-self: false
+
+  # Throws every enemy away from you. Melee and arrow deaths only.
+  shockwave:
+    item: vanilla
+    stack-size: 2
+    cooldown: 450
+    display-name: '<#e9e4c9>sʜᴏᴄᴋᴡᴀᴠᴇ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Blasts back everything'
+      - '<#E9FDFB>that cornered you.'
+      - ''
+      - '<#b6c1ec>Melee and arrows · MythicMobs'
+    conditions:
+      causes: [ENTITY_ATTACK, ENTITY_SWEEP_ATTACK, PROJECTILE]
+    consume: true
+    heal-to-full: false
+    effects:
+      - type: RESISTANCE
+        seconds: 5
+        level: 2
+    skills:
+      - skill: PT_Shockwave
+        power: 1.0
+        target-self: false
+
+  # Lightning on up to four enemies nearby.
+  storm:
+    item: vanilla
+    stack-size: 1
+    cooldown: 600
+    display-name: '<#7fd3ff>sᴛᴏʀᴍ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>The sky answers'
+      - '<#E9FDFB>for you.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Storm
+        power: 1.0
+        target-self: false
+
+  # An extra absorption shield on top of vanilla's.
+  arcane:
+    item: vanilla
+    stack-size: 2
+    cooldown: 450
+    display-name: '<#b57cff>ᴀʀᴄᴀɴᴇ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Wraps you in a shield'
+      - '<#E9FDFB>of arcane light.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_ArcaneShield
+        power: 1.0
+        target-self: false
+
+  # Summons an iron golem that fights for you for 30 seconds, then vanishes. It drops nothing.
+  spirit:
+    item: vanilla
+    stack-size: 1
+    cooldown: 900
+    display-name: '<#95d027>sᴘɪʀɪᴛ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>A guardian spirit fights'
+      - '<#E9FDFB>at your side for 30s.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_GuardianSpirit
+        power: 1.0
+        target-self: false
+
+  # Leaps you backwards out of the fight and hides you. Melee and arrow deaths only.
+  shadow:
+    item: vanilla
+    stack-size: 2
+    cooldown: 450
+    display-name: '<#8a8aa3>sʜᴀᴅᴏᴡ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>You vanish in smoke'
+      - '<#E9FDFB>before the last blow lands.'
+      - ''
+      - '<#b6c1ec>Melee and arrows · MythicMobs'
+    conditions:
+      causes: [ENTITY_ATTACK, ENTITY_SWEEP_ATTACK, PROJECTILE]
+    consume: true
+    heal-to-full: false
+    effects:
+      - type: SPEED
+        seconds: 8
+        level: 2
+    skills:
+      - skill: PT_Shadow
+        power: 1.0
+        target-self: false
+
+  # Freezes the enemies around you.
+  glacial:
+    item: vanilla
+    stack-size: 2
+    cooldown: 450
+    display-name: '<#bdf2ff>ɢʟᴀᴄɪᴀʟ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Everything around you'
+      - '<#E9FDFB>freezes in place.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Glacial
+        power: 1.0
+        target-self: false
+
+  # For a fatal fall: bounces you back up and lets you float down. Fall deaths only.
+  bounce:
+    item: vanilla
+    stack-size: 4
+    cooldown: 300
+    display-name: '<#9ff26b>ʙᴏᴜɴᴄᴇ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>The ground gives way'
+      - '<#E9FDFB>and throws you back up.'
+      - ''
+      - '<#b6c1ec>Fall deaths only · MythicMobs'
+    conditions:
+      causes: [FALL]
+    consume: true
+    heal-to-full: false
+    effects:
+      - type: SLOW_FALLING
+        seconds: 8
+        level: 1
+    skills:
+      - skill: PT_Bounce
+        power: 1.0
+        target-self: false
+
+  # Heals every player near you, not just you.
+  blessing:
+    item: vanilla
+    stack-size: 1
+    cooldown: 900
+    display-name: '<#ffe27a>ʙʟᴇssɪɴɢ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Your second chance'
+      - '<#E9FDFB>is shared with your friends.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Blessing
+        power: 1.0
+        target-self: false
+
+  # One of Phoenix, Storm, Blessing or Shockwave, picked at random.
+  chaos:
+    item: vanilla
+    stack-size: 2
+    cooldown: 450
+    display-name: '<#d65cff>ᴄʜᴀᴏs ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Nobody knows what it does.'
+      - '<#E9FDFB>Not even the totem.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Chaos
+        power: 1.0
+        target-self: false
+
+  # Blinds the enemies with Darkness while you see in the dark.
+  umbra:
+    item: vanilla
+    stack-size: 1
+    cooldown: 600
+    display-name: '<#4b3f8f>ᴜᴍʙʀᴀ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>The lights go out —'
+      - '<#E9FDFB>for everyone but you.'
+      - ''
+      - '<#b6c1ec>Powered by MythicMobs'
+    consume: true
+    heal-to-full: false
+    effects: []
+    skills:
+      - skill: PT_Umbra
+        power: 1.0
+        target-self: false
+
+  # For the dragon fight: breathes back at everything around you. Dragon breath in the End only.
+  dragon:
+    item: vanilla
+    stack-size: 1
+    cooldown: 600
+    display-name: '<#c77dff>ᴅʀᴀɢᴏɴ ᴛᴏᴛᴇᴍ'
+    lore:
+      - '<#E9FDFB>Turns the dragon''s breath'
+      - '<#E9FDFB>against its own.'
+      - ''
+      - '<#b6c1ec>Dragon breath in the End · MythicMobs'
+    conditions:
+      causes: [DRAGON_BREATH]
+      environments: [THE_END]
+    consume: true
+    heal-to-full: false
+    effects:
+      - type: RESISTANCE
+        seconds: 10
+        level: 2
+    skills:
+      - skill: PT_DragonBreath
+        power: 1.0
+        target-self: false
+
 # ---------------------------------------------------------------------------------------------
 #  A note on `item:` and inventory-wide search
 # ---------------------------------------------------------------------------------------------

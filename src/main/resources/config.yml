@@ -161,3 +161,17 @@ sound:
   resurrect: 'ITEM_TOTEM_USE'
   volume: 1.0
   pitch: 1.0
+
+# ---------------------------------------------------------------------------------------------
+#  MythicMobs
+# ---------------------------------------------------------------------------------------------
+mythicmobs:
+  # Install the PolaroidTotems skill pack into plugins/MythicMobs/Packs/PolaroidTotems/ on startup.
+  # It holds every skill the base totems in totems.yml cast (PT_Phoenix, PT_Vampire, ...).
+  #
+  # Runs only when MythicMobs is installed, and only when that folder does NOT exist yet: a pack
+  # you edited is never overwritten. Delete the folder to get the original back on the next
+  # restart, or set this to false if you removed it on purpose and want it to stay gone.
+  #
+  # Read before MythicMobs loads its files, so the skills work on the very first start.
+  install-pack: true

@@ -16,6 +16,7 @@ import me.juancayc.polaroidtotems.listeners.VoidRescueListener;
 import me.juancayc.polaroidtotems.messaging.ColorFormats;
 import me.juancayc.polaroidtotems.messaging.MessageService;
 import me.juancayc.polaroidtotems.messaging.MiniMessageProvider;
+import me.juancayc.polaroidtotems.skill.MythicPackInstaller;
 import me.juancayc.polaroidtotems.skill.MythicSkillHook;
 import me.juancayc.polaroidtotems.skill.SkillValidationReporter;
 import me.juancayc.polaroidtotems.skill.SkillValidator;
@@ -49,6 +50,13 @@ public final class PolaroidTotemsPlugin extends JavaPlugin {
      * {@link #openRepository}, which degrades to an in-memory store rather than to nothing.
      */
     private CooldownService cooldownService;
+
+    @Override
+    public void onLoad() {
+        // Here and not in onEnable: MythicMobs reads its packs while enabling, and every onLoad runs
+        // before any onEnable. See MythicPackInstaller.
+        new MythicPackInstaller(this).installIfMissing();
+    }
 
     @Override
     public void onEnable() {
