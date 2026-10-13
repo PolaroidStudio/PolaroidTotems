@@ -12,11 +12,22 @@ on:
     paths-ignore:
       - '*.md'
       - '.gitignore'
+  # Mantiene vivo el caché de Gradle. GitHub borra los cachés que nadie lee en 7 días, y acá los
+  # pushes suelen estar más espaciados que eso: sin esto, el build siguiente a una pausa vuelve a
+  # bajar Gradle y ~150 MB de dependencias (48–56 s en vez de 21 s). Lunes y jueves deja como
+  # mucho 4 días entre lecturas.
+  #
+  # No publica nada: los pasos de release exigen `event_name == 'push'`.
+  schedule:
+    - cron: '0 6 * * 1,4'
 
 # Un build por rama. Si empujás dos veces seguidas, el anterior se cancela
 # en vez de encolarse y competir por la CPU del runner.
+#
+# El evento va en el grupo para que el run programado no comparta grupo con los pushes a main:
+# si lo compartiera, podría cancelar un release a medio publicar.
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -49,8 +60,14 @@ jobs:
             25
             21
 
+      # Sin limpieza del caché al terminar. La limpieza arranca un segundo Gradle sobre un proyecto
+      # vacío (~11 s en cada push a main) para purgar lo que el build no usó, y acá no purga nada:
+      # las dependencias están fijadas. El costo es que una versión vieja queda en el caché tras
+      # subirla; pesa ~250 MB de un límite de 10 GB, y se resetea borrando los cachés del repo.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-cleanup: never
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
