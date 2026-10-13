@@ -16,7 +16,7 @@
 #  into a PvP weapon. Set targetplayers=true if your server wants that.
 #
 #  This file is installed once and never overwritten. Edit it freely; delete the whole
-#  plugins/MythicMobs/Packs/PolaroidTotems folder to get the original back on the next restart.
+#  plugins/MythicMobs/packs/PolaroidTotems folder to get the original back on the next restart.
 # ---------------------------------------------------------------------------------------------
 
 # Phoenix — a ring of fire that burns everything around the player.

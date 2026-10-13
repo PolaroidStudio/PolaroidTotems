@@ -4,10 +4,13 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,6 +45,37 @@ class MythicPackTest {
         for (String file : MythicPackInstaller.PACK_FILES) {
             resource(MythicPackInstaller.RESOURCE_ROOT + file);
         }
+    }
+
+    // The folder names are neutral on purpose: `Packs` and `packs` are one directory on Windows and
+    // macOS, so the real pair could only ever be told apart on a Linux build machine.
+    @Test
+    @DisplayName("a legacy pack is moved with the owner's edits, and its emptied folder is removed")
+    void legacyPackIsMovedWithItsEdits(@TempDir Path mythicDir) throws Exception {
+        Path legacyDir = mythicDir.resolve("old").resolve("PolaroidTotems");
+        Path packDir = mythicDir.resolve("new").resolve("PolaroidTotems");
+        Files.createDirectories(legacyDir.resolve("Skills"));
+        Files.writeString(legacyDir.resolve("Skills/polaroidtotems.yml"), "edited by the owner");
+
+        MythicPackInstaller.moveLegacyPack(legacyDir, packDir);
+
+        assertEquals("edited by the owner", Files.readString(packDir.resolve("Skills/polaroidtotems.yml")));
+        assertFalse(Files.exists(legacyDir.getParent()), "an emptied legacy folder should not linger");
+    }
+
+    @Test
+    @DisplayName("a legacy folder holding other packs survives the move")
+    void legacyFolderWithOtherPacksIsKept(@TempDir Path mythicDir) throws Exception {
+        Path legacyDir = mythicDir.resolve("old").resolve("PolaroidTotems");
+        Path otherPack = mythicDir.resolve("old").resolve("SomeoneElses");
+        Path packDir = mythicDir.resolve("new").resolve("PolaroidTotems");
+        Files.createDirectories(legacyDir);
+        Files.createDirectories(otherPack);
+
+        MythicPackInstaller.moveLegacyPack(legacyDir, packDir);
+
+        assertTrue(Files.isDirectory(packDir));
+        assertTrue(Files.isDirectory(otherPack), "another pack in the legacy folder is not ours to remove");
     }
 
     @Test

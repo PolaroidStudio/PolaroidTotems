@@ -304,11 +304,14 @@ Offensive skills target every living entity in range **except players and the ca
 never hurts the player it saved and never becomes a PvP weapon.
 
 The skills live in a MythicMobs **pack** the plugin installs by itself: on startup, if MythicMobs is
-installed and `plugins/MythicMobs/Packs/PolaroidTotems/` does not exist, it is copied there. This
+installed and `plugins/MythicMobs/packs/PolaroidTotems/` does not exist, it is copied there. This
 happens in `onLoad`, before MythicMobs reads its packs, so the skills work on the first start. An
 existing pack is **never overwritten** — edit it freely. Delete the folder to restore the original on
 the next restart, or set `mythicmobs.install-pack: false` in `config.yml` to stop the plugin from
 installing it. Without MythicMobs these totems still save the player; they just cast nothing.
+
+Earlier builds installed the pack into `Packs/` with a capital P, which MythicMobs does not read on
+Linux. A pack found there is moved to `packs/` on startup, edits included.
 
 ### About `stack-size`
 

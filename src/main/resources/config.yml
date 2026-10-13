@@ -166,7 +166,7 @@ sound:
 #  MythicMobs
 # ---------------------------------------------------------------------------------------------
 mythicmobs:
-  # Install the PolaroidTotems skill pack into plugins/MythicMobs/Packs/PolaroidTotems/ on startup.
+  # Install the PolaroidTotems skill pack into plugins/MythicMobs/packs/PolaroidTotems/ on startup.
   # It holds every skill the base totems in totems.yml cast (PT_Phoenix, PT_Vampire, ...).
   #
   # Runs only when MythicMobs is installed, and only when that folder does NOT exist yet: a pack

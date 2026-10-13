@@ -504,7 +504,7 @@ totems:
   #  MYTHICMOBS BASE TOTEMS
   # ===========================================================================================
   #  Every totem below casts one skill from the PolaroidTotems MythicMobs pack, which this plugin
-  #  installs by itself into plugins/MythicMobs/Packs/PolaroidTotems/ on startup (see
+  #  installs by itself into plugins/MythicMobs/packs/PolaroidTotems/ on startup (see
   #  `mythicmobs.install-pack` in config.yml). They fire exactly like a vanilla totem: on the hit
   #  that would have killed you, never on a right-click.
   #
